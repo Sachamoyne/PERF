@@ -90,6 +90,7 @@ export type Database = {
           full_name: string | null
           height_cm: number | null
           id: string
+          last_sync: string | null
           updated_at: string
           user_id: string
           weight_kg: number | null
@@ -100,6 +101,7 @@ export type Database = {
           full_name?: string | null
           height_cm?: number | null
           id?: string
+          last_sync?: string | null
           updated_at?: string
           user_id: string
           weight_kg?: number | null
@@ -110,9 +112,43 @@ export type Database = {
           full_name?: string | null
           height_cm?: number | null
           id?: string
+          last_sync?: string | null
           updated_at?: string
           user_id?: string
           weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      sync_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          payload: Json | null
+          records_imported: number
+          source: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          records_imported?: number
+          source: string
+          status: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          records_imported?: number
+          source?: string
+          status?: string
+          user_id?: string
         }
         Relationships: []
       }

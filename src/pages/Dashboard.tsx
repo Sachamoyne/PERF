@@ -3,6 +3,7 @@ import { useLatestMetrics } from "@/hooks/useHealthMetrics";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { RecentActivities } from "@/components/dashboard/RecentActivities";
+import { SyncBanner } from "@/components/dashboard/SyncBanner";
 
 const kpiConfig = [
   { key: "hrv", label: "HRV", icon: <Activity className="h-4 w-4" />, color: "hsl(152, 60%, 48%)" },
@@ -17,6 +18,8 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-display font-bold text-foreground">Dashboard</h1>
+
+      <SyncBanner />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiConfig.map((kpi) => {
