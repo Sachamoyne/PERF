@@ -2,3 +2,6 @@ project_id = "rdeteigdiumqueaeddis"
 
 [functions.webhook-ingestion]
 verify_jwt = false
+
+[functions.manual-import]
+verify_jwt = false

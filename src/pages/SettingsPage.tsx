@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { toast } from "sonner";
+import { JsonDropZone } from "@/components/settings/JsonDropZone";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -34,15 +35,25 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-md">
+    <div className="space-y-8 max-w-lg">
       <h1 className="text-2xl font-display font-bold text-foreground">Paramètres</h1>
 
       {user ? (
-        <div className="glass-card p-6 space-y-4">
-          <p className="text-sm text-muted-foreground">Connecté en tant que</p>
-          <p className="text-foreground font-medium">{user.email}</p>
-          <Button variant="outline" onClick={handleSignOut}>Se déconnecter</Button>
-        </div>
+        <>
+          <div className="glass-card p-6 space-y-4">
+            <p className="text-sm text-muted-foreground">Connecté en tant que</p>
+            <p className="text-foreground font-medium">{user.email}</p>
+            <Button variant="outline" onClick={handleSignOut}>Se déconnecter</Button>
+          </div>
+
+          <div className="glass-card p-6 space-y-4">
+            <h2 className="text-lg font-semibold text-foreground">Import manuel de données</h2>
+            <p className="text-sm text-muted-foreground">
+              Glissez un fichier JSON contenant vos activités et métriques de santé.
+            </p>
+            <JsonDropZone />
+          </div>
+        </>
       ) : (
         <div className="glass-card p-6 space-y-4">
           <p className="text-sm text-muted-foreground">
