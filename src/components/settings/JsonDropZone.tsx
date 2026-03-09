@@ -330,9 +330,9 @@ export function JsonDropZone() {
                     <TableCell className="text-xs text-muted-foreground">{row.value}</TableCell>
                     <TableCell>
                       {row.valid ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <CheckCircle2 className="h-4 w-4 text-primary" />
                       ) : (
-                        <AlertCircle className="h-4 w-4 text-destructive" title={row.reason} />
+                        <AlertCircle className="h-4 w-4 text-destructive" />
                       )}
                     </TableCell>
                   </TableRow>
