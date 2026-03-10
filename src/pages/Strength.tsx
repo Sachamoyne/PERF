@@ -16,6 +16,17 @@ export default function Strength() {
   const { data: latestMetrics = [] } = useLatestBodyMetric();
   const { data: bodyHistory = [] } = useBodyMetrics(30);
   const prCards = usePRCards();
+  const { data: syncStatus } = useBodyMetricsSyncStatus();
+  const syncMutation = useManualBodySync();
+
+  const handleSync = () => {
+    syncMutation.mutate(undefined, {
+      onSuccess: () => toast.success("Synchronisation lancée"),
+      onError: (err) => toast.error(err.message),
+    });
+  };
+  const { data: bodyHistory = [] } = useBodyMetrics(30);
+  const prCards = usePRCards();
 
   const latest = latestMetrics[0];
   const previous = latestMetrics[1];
