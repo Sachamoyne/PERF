@@ -72,6 +72,8 @@ export type Database = {
           date: string
           id: string
           muscle_mass_kg: number | null
+          source: string
+          source_id: string | null
           user_id: string
           weight_kg: number | null
         }
@@ -81,6 +83,8 @@ export type Database = {
           date?: string
           id?: string
           muscle_mass_kg?: number | null
+          source?: string
+          source_id?: string | null
           user_id: string
           weight_kg?: number | null
         }
@@ -90,6 +94,8 @@ export type Database = {
           date?: string
           id?: string
           muscle_mass_kg?: number | null
+          source?: string
+          source_id?: string | null
           user_id?: string
           weight_kg?: number | null
         }
