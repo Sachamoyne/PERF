@@ -5,7 +5,6 @@ import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { SyncBanner } from "@/components/dashboard/SyncBanner";
 import { HrvTrendBadge } from "@/components/dashboard/HrvTrendBadge";
-import { ReadinessScore } from "@/components/dashboard/ReadinessScore";
 
 const kpiConfig = [
   { key: "hrv", label: "HRV", unit: "ms", icon: <Activity className="h-4 w-4" />, color: "hsl(152, 60%, 48%)" },
@@ -25,7 +24,7 @@ export default function Dashboard() {
 
       <SyncBanner />
 
-      {/* KPI Cards + Readiness Score */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpiConfig.map((kpi) => (
           <KpiCard
@@ -42,18 +41,10 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Readiness below on mobile, inline on desktop */}
-      <div className="lg:hidden">
-        <ReadinessScore />
-      </div>
-
-      {/* Main content: Chart (2fr) + Sidebar (1fr) */}
+      {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3">
         <HealthChart />
         <div className="flex flex-col gap-3">
-          <div className="hidden lg:block">
-            <ReadinessScore />
-          </div>
           <WeeklySummary />
           <ActivityHeatmap />
         </div>
