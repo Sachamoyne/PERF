@@ -120,7 +120,7 @@ export function HealthChart() {
               interval={tickInterval}
               tick={({ x, y, payload }: any) => {
                 const entry = chartData.find((d) => d.dateLabel === payload.value);
-                const icons = days <= 30
+                const icons = days <= 7
                   ? entry?.sports?.map((s) => sportIcons[s] || "⚡").join("") || ""
                   : "";
                 return (
