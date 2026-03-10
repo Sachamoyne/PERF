@@ -200,48 +200,68 @@ export default function Running() {
           </div>
         </div>
         <div className="h-[250px]">
-          {chartData.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              Aucune sortie sur cette période
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} onClick={(e) => {
-                if (e?.activePayload?.[0]?.payload?.id) {
-                  setSelectedRunId(e.activePayload[0].payload.id);
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              onClick={(e) => {
+                const payload = e?.activePayload?.[0]?.payload;
+                if (payload?.hasActivity && payload?.id) {
+                  setSelectedRunId(payload.id);
+                } else {
+                  setSelectedRunId(null);
                 }
-              }}>
-                <defs>
-                  <linearGradient id="runGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--running))" stopOpacity={1} />
-                    <stop offset="100%" stopColor="hsl(var(--rhr))" stopOpacity={0.7} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} unit=" km" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    color: "hsl(var(--foreground))",
-                  }}
-                  formatter={(value: number) => [`${value} km`, "Distance"]}
-                  cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
-                />
-                <Bar dataKey="km" radius={[4, 4, 0, 0]} cursor="pointer">
-                  {chartData.map((entry) => (
-                    <Cell
-                      key={entry.id}
-                      fill={entry.id === selectedRunId ? "hsl(var(--rhr))" : "url(#runGradient)"}
-                      opacity={selectedRunId && entry.id !== selectedRunId ? 0.4 : 1}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
+              }}
+              barCategoryGap={chartPeriod === "month" ? "20%" : "30%"}
+            >
+              <defs>
+                <linearGradient id="runGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="hsl(var(--running))" stopOpacity={1} />
+                  <stop offset="100%" stopColor="hsl(var(--rhr))" stopOpacity={0.7} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis
+                dataKey="label"
+                stroke="hsl(var(--muted-foreground))"
+                fontSize={11}
+                tickLine={false}
+                interval={chartPeriod === "month" ? (i: number) => {
+                  const day = i + 1;
+                  return day === 1 || day % 5 === 0;
+                } : 0}
+              />
+              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} unit=" km" tickLine={false} axisLine={false} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "8px",
+                  color: "hsl(var(--foreground))",
+                }}
+                formatter={(value: number) => [value > 0 ? `${value} km` : "Repos", "Distance"]}
+                labelFormatter={(_, payload) => {
+                  const item = payload?.[0]?.payload;
+                  return item?.date ? format(item.date, "EEEE d MMMM", { locale: fr }) : "";
+                }}
+                cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
+              />
+              <Bar dataKey="km" radius={[3, 3, 0, 0]} cursor="pointer" maxBarSize={chartPeriod === "month" ? 16 : 40}>
+                {chartData.map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={
+                      !entry.hasActivity
+                        ? "hsl(var(--muted))"
+                        : entry.id === selectedRunId
+                          ? "hsl(var(--rhr))"
+                          : "url(#runGradient)"
+                    }
+                    opacity={selectedRunId && entry.id !== selectedRunId ? 0.4 : entry.hasActivity ? 1 : 0.3}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
