@@ -6,6 +6,9 @@
 
 @layer base {
   :root {
+    --sat: env(safe-area-inset-top, 20px);
+    --sab: env(safe-area-inset-bottom, 20px);
+
     --background: 220 20% 7%;
     --foreground: 210 20% 92%;
 
