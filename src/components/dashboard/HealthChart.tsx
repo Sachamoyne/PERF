@@ -80,7 +80,14 @@ export function HealthChart() {
   ];
 
   // Show fewer ticks on longer periods
-  const tickInterval = days <= 30 ? 0 : days <= 90 ? 6 : 29;
+  // Dynamically compute tick interval based on actual data length
+  const tickInterval = useMemo(() => {
+    const len = chartData.length;
+    if (len <= 10) return 0;
+    if (len <= 35) return 4; // ~every 5 days for 1m
+    if (len <= 100) return 13; // ~every 2 weeks for 3m
+    return Math.floor(len / 12); // ~12 ticks for 1a
+  }, [chartData.length]);
 
   return (
     <div className="glass-card p-6 space-y-4">
