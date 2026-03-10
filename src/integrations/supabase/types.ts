@@ -249,7 +249,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      clear_user_data: { Args: { _user_id: string }; Returns: Json }
     }
     Enums: {
       metric_type: "hrv" | "sleep_score" | "rhr" | "body_battery" | "vo2max"

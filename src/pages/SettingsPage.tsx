@@ -156,6 +156,39 @@ export default function SettingsPage() {
         <JsonDropZone />
       </div>
 
+      {/* Reset all data */}
+      <div className="glass-card p-6 space-y-4 border border-destructive/30">
+        <div className="flex items-center gap-2">
+          <Trash2 className="h-5 w-5 text-destructive" />
+          <h2 className="text-lg font-semibold text-foreground">Réinitialiser mes données</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Supprime toutes tes activités, métriques, pesées et exercices. Ton compte et ton profil sont conservés.
+        </p>
+        <Button
+          variant="destructive"
+          onClick={async () => {
+            if (!user) return;
+            const confirmed = window.confirm("Supprimer définitivement toutes tes données ? Cette action est irréversible.");
+            if (!confirmed) return;
+            setMockLoading(true);
+            try {
+              const { error } = await supabase.rpc("clear_user_data", { _user_id: user.id });
+              if (error) throw error;
+              queryClient.invalidateQueries();
+              toast.success("Toutes les données ont été supprimées");
+            } catch (e: any) {
+              toast.error(e.message || "Erreur lors de la suppression");
+            }
+            setMockLoading(false);
+          }}
+          disabled={mockLoading}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          {mockLoading ? "Suppression..." : "Supprimer toutes mes données"}
+        </Button>
+      </div>
+
       {/* Dev-only: Mock data generator */}
       {isDev && (
         <div className="glass-card p-6 space-y-4 border-dashed border-2 border-primary/30">

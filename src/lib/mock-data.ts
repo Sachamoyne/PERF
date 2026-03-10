@@ -159,6 +159,8 @@ export async function generateTestData(userId: string) {
 }
 
 export async function clearTestData(userId: string) {
+  await supabase.from("exercise_stats").delete().eq("user_id", userId);
+  await supabase.from("body_metrics").delete().eq("user_id", userId);
   await supabase.from("health_metrics").delete().eq("user_id", userId);
   await supabase.from("activities").delete().eq("user_id", userId);
 }
