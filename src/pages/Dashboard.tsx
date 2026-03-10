@@ -48,17 +48,17 @@ export default function Dashboard() {
         <ReadinessScore />
       </div>
 
-      {/* Health Chart + Weekly Summary */}
+      {/* Health Chart (left) + Weekly Summary & Heatmap (right) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <HealthChart />
         </div>
-        <div>
+        <div className="flex flex-col gap-4">
           <WeeklySummary />
+          <ActivityHeatmap />
         </div>
       </div>
 
-      <ActivityHeatmap />
       <RecentActivities />
 
       {/* Collapsible metrics history */}
