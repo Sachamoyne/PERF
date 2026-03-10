@@ -65,6 +65,66 @@ export type Database = {
         }
         Relationships: []
       }
+      body_metrics: {
+        Row: {
+          body_fat_pc: number | null
+          created_at: string
+          date: string
+          id: string
+          muscle_mass_kg: number | null
+          user_id: string
+          weight_kg: number | null
+        }
+        Insert: {
+          body_fat_pc?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          muscle_mass_kg?: number | null
+          user_id: string
+          weight_kg?: number | null
+        }
+        Update: {
+          body_fat_pc?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          muscle_mass_kg?: number | null
+          user_id?: string
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      exercise_stats: {
+        Row: {
+          created_at: string
+          exercise_name: string
+          id: string
+          reps: number
+          sets: number
+          user_id: string
+          weight_kg: number
+        }
+        Insert: {
+          created_at?: string
+          exercise_name: string
+          id?: string
+          reps?: number
+          sets?: number
+          user_id: string
+          weight_kg?: number
+        }
+        Update: {
+          created_at?: string
+          exercise_name?: string
+          id?: string
+          reps?: number
+          sets?: number
+          user_id?: string
+          weight_kg?: number
+        }
+        Relationships: []
+      }
       health_metrics: {
         Row: {
           created_at: string
