@@ -92,11 +92,17 @@ export default function Running() {
     }
 
     return days.map((day) => {
-      const dayRuns = allRuns.filter((r) => isSameDay(parseISO(r.start_time), day));
+      const dayRuns = allRuns.filter((r) => {
+        const rd = new Date(r.start_time);
+        return rd.getFullYear() === day.getFullYear() &&
+               rd.getMonth() === day.getMonth() &&
+               rd.getDate() === day.getDate();
+      });
       const km = dayRuns.reduce((s, r) => s + (r.distance_meters || 0), 0) / 1000;
       return {
-        date: day,
-        id: dayRuns.length === 1 ? dayRuns[0].id : dayRuns.length > 1 ? dayRuns[0].id : null,
+        date: format(day, "yyyy-MM-dd"),
+        dateLabel: format(day, "EEEE d MMMM", { locale: fr }),
+        id: dayRuns.length > 0 ? dayRuns[0].id : null,
         label: chartPeriod === "week"
           ? format(day, "EEE", { locale: fr })
           : format(day, "d"),
