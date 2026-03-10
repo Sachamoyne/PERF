@@ -66,7 +66,7 @@ export default function Running() {
 
   const cutoff = useMemo(() => periodCutoff(kpiPeriod), [kpiPeriod]);
   const filteredRuns = useMemo(
-    () => allRuns.filter((r) => isAfter(parseISO(r.start_time), cutoff)),
+    () => allRuns.filter((r) => isAfter(new Date(r.start_time), cutoff)),
     [allRuns, cutoff]
   );
 
