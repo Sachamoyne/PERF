@@ -20,6 +20,10 @@ interface KpiCardProps {
   unit: string;
   color: string;
   icon: React.ReactNode;
+  source?: "health_metrics" | "body_metrics";
+  bodyField?: "weight_kg" | "body_fat_pc" | "muscle_mass_kg";
+  /** If true, a decrease is shown green (good) */
+  invertDelta?: boolean;
 }
 
 function useMetricHistory(metricType: string, days: number) {
@@ -40,10 +44,33 @@ function useMetricHistory(metricType: string, days: number) {
   });
 }
 
-export function KpiCard({ metricType, label, color, icon }: KpiCardProps) {
+function useBodyMetricHistory(field: string, days: number) {
+  return useQuery({
+    queryKey: ["kpi_body_metric", field, days],
+    queryFn: async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const { data, error } = await supabase
+        .from("body_metrics")
+        .select("date, weight_kg, body_fat_pc, muscle_mass_kg")
+        .gte("date", since.toISOString().split("T")[0])
+        .order("date", { ascending: true });
+      if (error) throw error;
+      return (data ?? [])
+        .map((d: any) => ({ value: d[field] as number | null, date: d.date }))
+        .filter((d) => d.value != null) as { value: number; date: string }[];
+    },
+  });
+}
+
+export function KpiCard({ metricType, label, color, icon, source = "health_metrics", bodyField, invertDelta }: KpiCardProps) {
   const [periodIdx, setPeriodIdx] = useState(0);
   const period = PERIODS[periodIdx];
-  const { data: history = [] } = useMetricHistory(metricType, period.days);
+
+  const { data: healthHistory = [] } = useMetricHistory(metricType, period.days);
+  const { data: bodyHistory = [] } = useBodyMetricHistory(bodyField || "weight_kg", period.days);
+
+  const history = source === "body_metrics" ? bodyHistory : healthHistory;
 
   const { displayValue, unit, delta, deltaLabel, chartData, gradientId } = useMemo(() => {
     const gId = `gradient-${metricType}`;
@@ -54,12 +81,14 @@ export function KpiCard({ metricType, label, color, icon }: KpiCardProps) {
     const values = history.map((d) => d.value);
     const avg = Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10;
     const latest = history[history.length - 1];
-    const u = latest.unit;
 
-    // For 7j show latest value, otherwise show average
+    // Determine unit
+    const u = source === "body_metrics"
+      ? (bodyField === "body_fat_pc" ? "%" : "kg")
+      : (latest as any).unit || "";
+
     const display = period.days === 7 ? latest.value : avg;
 
-    // Day-over-day delta
     let d: number | null = null;
     let dLabel = "";
     if (history.length >= 2) {
@@ -77,19 +106,24 @@ export function KpiCard({ metricType, label, color, icon }: KpiCardProps) {
       chartData: values.map((v, i) => ({ v, i })),
       gradientId: gId,
     };
-  }, [history, period.days, metricType]);
+  }, [history, period.days, metricType, source, bodyField]);
+
+  // Semantic color for delta: invertDelta means decrease = good (green)
+  const deltaIsGood = delta !== null && delta !== 0
+    ? (invertDelta ? delta < 0 : delta > 0)
+    : null;
 
   return (
     <div className="glass-card p-3 flex flex-col justify-between overflow-hidden" style={{ minHeight: "140px" }}>
       {/* Header row */}
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 text-muted-foreground text-xs min-w-0">
-          {icon}
+          <span className="shrink-0">{icon}</span>
           <span className="truncate">{label}</span>
         </div>
-        {delta !== null && (
-          <div className={`flex items-center gap-0.5 text-[10px] font-medium shrink-0 ${delta > 0 ? "text-primary" : delta < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-            {delta > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : delta < 0 ? <TrendingDown className="h-2.5 w-2.5" /> : <Minus className="h-2.5 w-2.5" />}
+        {delta !== null && delta !== 0 && (
+          <div className={`flex items-center gap-0.5 text-[10px] font-medium shrink-0 ${deltaIsGood ? "text-primary" : "text-destructive"}`}>
+            {delta > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
             {deltaLabel}
           </div>
         )}
@@ -101,7 +135,7 @@ export function KpiCard({ metricType, label, color, icon }: KpiCardProps) {
           {displayValue}
         </span>
         <span className="text-[10px] text-muted-foreground ml-1">{unit}</span>
-        {period.days > 7 && (
+        {period.days > 7 && history.length > 0 && (
           <span className="text-[9px] text-muted-foreground ml-1">(moy.)</span>
         )}
       </div>
