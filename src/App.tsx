@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "./pages/Dashboard";
-import Health from "./pages/Health";
+
 import Running from "./pages/Running";
 import Racket from "./pages/Racket";
 import Strength from "./pages/Strength";
