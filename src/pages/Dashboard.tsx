@@ -26,18 +26,26 @@ export default function Dashboard() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {kpiConfig.map((kpi) => (
-          <KpiCard
+        {kpiConfig.map((kpi, idx) => (
+          <div
             key={kpi.key}
-            metricType={kpi.key}
-            label={kpi.label}
-            unit={kpi.unit}
-            color={kpi.color}
-            icon={kpi.icon}
-            source={kpi.source}
-            bodyField={kpi.bodyField}
-            invertDelta={kpi.invertDelta}
-          />
+            className={
+              kpiConfig.length % 2 !== 0 && idx === kpiConfig.length - 1
+                ? "col-span-2 sm:col-span-1"
+                : undefined
+            }
+          >
+            <KpiCard
+              metricType={kpi.key}
+              label={kpi.label}
+              unit={kpi.unit}
+              color={kpi.color}
+              icon={kpi.icon}
+              source={kpi.source}
+              bodyField={kpi.bodyField}
+              invertDelta={kpi.invertDelta}
+            />
+          </div>
         ))}
       </div>
 
