@@ -1,4 +1,4 @@
-import { LayoutDashboard, Heart, Timer, Swords, Dumbbell, Settings } from "lucide-react";
+import { LayoutDashboard, Timer, Swords, Dumbbell, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -13,8 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Santé", url: "/health", icon: Heart },
+  { title: "Vue d'ensemble", url: "/", icon: LayoutDashboard },
   { title: "Running", url: "/running", icon: Timer },
   { title: "Raquette", url: "/racket", icon: Swords },
   { title: "Musculation", url: "/strength", icon: Dumbbell },

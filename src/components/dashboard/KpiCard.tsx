@@ -1,4 +1,5 @@
 import { LineChart, Line, ResponsiveContainer } from "recharts";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface KpiCardProps {
   label: string;
@@ -12,6 +13,16 @@ interface KpiCardProps {
 export function KpiCard({ label, value, unit, trend, color, icon }: KpiCardProps) {
   const chartData = trend.map((v, i) => ({ v, i }));
 
+  // Compute day-over-day variation
+  let delta: number | null = null;
+  let deltaLabel = "";
+  if (trend.length >= 2) {
+    const current = trend[trend.length - 1];
+    const previous = trend[trend.length - 2];
+    delta = Math.round((current - previous) * 10) / 10;
+    deltaLabel = delta > 0 ? `+${delta}` : `${delta}`;
+  }
+
   return (
     <div className="glass-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -19,6 +30,12 @@ export function KpiCard({ label, value, unit, trend, color, icon }: KpiCardProps
           {icon}
           {label}
         </div>
+        {delta !== null && (
+          <div className={`flex items-center gap-0.5 text-xs font-medium ${delta > 0 ? "text-primary" : delta < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {delta > 0 ? <TrendingUp className="h-3 w-3" /> : delta < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            {deltaLabel}{unit}
+          </div>
+        )}
       </div>
       <div className="flex items-end justify-between">
         <div>

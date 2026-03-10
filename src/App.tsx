@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "./pages/Dashboard";
-import Health from "./pages/Health";
+
 import Running from "./pages/Running";
 import Racket from "./pages/Racket";
 import Strength from "./pages/Strength";
@@ -34,7 +34,6 @@ function ProtectedRoutes() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/health" element={<Health />} />
         <Route path="/running" element={<Running />} />
         <Route path="/racket" element={<Racket />} />
         <Route path="/strength" element={<Strength />} />
