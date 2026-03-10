@@ -136,7 +136,7 @@ export function HealthChart() {
                   </g>
                 );
               }}
-              height={days <= 30 ? 45 : 30}
+              height={days <= 7 ? 45 : 30}
             />
             <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={11} />
             <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--muted-foreground))" fontSize={11} />
