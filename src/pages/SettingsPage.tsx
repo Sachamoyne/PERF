@@ -219,6 +219,55 @@ export default function SettingsPage() {
             </p>
             <JsonDropZone />
           </div>
+
+          {/* Dev-only: Mock data generator */}
+          {isDev && (
+            <div className="glass-card p-6 space-y-4 border-dashed border-2 border-primary/30">
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Données de test (Dev)</h2>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Génère 30 jours de données réalistes : 3 runs/sem, 2 tennis/padel, 2 musculation, 1 natation + métriques santé.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={async () => {
+                    if (!user) return;
+                    setMockLoading(true);
+                    try {
+                      await clearTestData(user.id);
+                      const res = await generateTestData(user.id);
+                      queryClient.invalidateQueries();
+                      toast.success(`${res.activities} activités et ${res.metrics} métriques générées !`);
+                    } catch {
+                      toast.error("Erreur lors de la génération");
+                    }
+                    setMockLoading(false);
+                  }}
+                  disabled={mockLoading}
+                  className="flex-1"
+                >
+                  <Database className="h-4 w-4 mr-2" />
+                  {mockLoading ? "Génération..." : "Générer des données de test"}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    if (!user) return;
+                    setMockLoading(true);
+                    await clearTestData(user.id);
+                    queryClient.invalidateQueries();
+                    toast.success("Données supprimées");
+                    setMockLoading(false);
+                  }}
+                  disabled={mockLoading}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <div className="glass-card p-6 space-y-4">
