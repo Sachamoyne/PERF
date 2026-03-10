@@ -1,12 +1,15 @@
 import { useActivities } from "@/hooks/useHealthData";
 import { useLatestBodyMetric, useBodyMetrics } from "@/hooks/useBodyMetrics";
 import { usePRCards } from "@/hooks/useExerciseStats";
+import { useBodyMetricsSyncStatus, useManualBodySync } from "@/hooks/useBodyMetricsSync";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { Dumbbell, Scale, TrendingUp, TrendingDown, Minus, Timer, Flame, Trophy } from "lucide-react";
+import { Dumbbell, Scale, TrendingUp, TrendingDown, Minus, Timer, Flame, Trophy, RefreshCw } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { Button } from "@/components/ui/button";
 import LogBodyMetricsDrawer from "@/components/strength/LogBodyMetricsDrawer";
 import UpdatePRDrawer from "@/components/strength/UpdatePRDrawer";
+import { toast } from "sonner";
 
 export default function Strength() {
   const { data: sessions = [] } = useActivities("strength");
