@@ -5,7 +5,7 @@ import { AppHeader } from "./AppHeader";
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-screen flex w-full pt-[env(safe-area-inset-top)]">
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <AppHeader />

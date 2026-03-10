@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
-import { generateTestData, clearTestData } from "@/lib/mock-data";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -18,7 +17,6 @@ import {
 
 export function AppHeader() {
   const [syncing, setSyncing] = useState(false);
-  const [mocking, setMocking] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
   const { user } = useAuth();
   const { data: syncStatus } = useSyncStatus();
@@ -39,24 +37,6 @@ export function AppHeader() {
     toast.success("Synchronisation Garmin terminée");
   };
 
-  const handleMockData = async () => {
-    if (!user) {
-      toast.error("Connectez-vous d'abord via la page Paramètres");
-      navigate("/settings");
-      return;
-    }
-    setMocking(true);
-    try {
-      await clearTestData(user.id);
-      await generateTestData(user.id);
-      queryClient.invalidateQueries();
-      toast.success("Données de test ajoutées !");
-    } catch (e) {
-      toast.error("Erreur lors de l'ajout des données");
-    }
-    setMocking(false);
-  };
-
   return (
     <>
       <header className="h-14 flex items-center justify-between border-b border-border px-4">
@@ -64,16 +44,6 @@ export function AppHeader() {
           <SidebarTrigger />
         </div>
         <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleMockData}
-            disabled={mocking}
-            className="text-xs"
-          >
-            {mocking ? "Chargement..." : "📊 Add Mock Data"}
-          </Button>
-
           <div className="flex items-center gap-2">
             {/* Sync status indicator */}
             {syncStatus && (
