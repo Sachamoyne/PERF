@@ -5,7 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
-import { format, parseISO, isAfter, subDays, subMonths, subYears, startOfWeek, startOfMonth } from "date-fns";
+import {
+  format, parseISO, isAfter, subDays, subMonths, subYears,
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay,
+} from "date-fns";
 import { fr } from "date-fns/locale";
 import { MapPin, Mountain, Wind, TrendingUp, TrendingDown, Clock, Heart, ArrowUp, Footprints } from "lucide-react";
 import { computePace } from "@/lib/garmin-utils";
