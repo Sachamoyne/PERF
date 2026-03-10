@@ -6,8 +6,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import {
-  format, isAfter, subDays, subMonths, subYears,
-  startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval,
+  format, isAfter, subYears,
+  startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear,
+  eachDayOfInterval, eachMonthOfInterval,
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { MapPin, Mountain, Wind, TrendingUp, TrendingDown, Clock, Heart, ArrowUp, Footprints } from "lucide-react";
@@ -37,18 +38,23 @@ function PeriodSelector({ value, onChange }: { value: Period; onChange: (p: Peri
   );
 }
 
-function periodCutoff(period: Period): Date {
-  const now = new Date();
-  if (period === "week") return subDays(now, 7);
-  if (period === "month") return subMonths(now, 1);
-  return subYears(now, 1);
-}
+type ChartEntry = {
+  label: string;
+  dateLabel: string;
+  km: number;
+  hasActivity: boolean;
+  id: string | null;
+};
 
 export default function Running() {
-  const { data: allRuns = [], isError } = useActivities("running");
-  const [kpiPeriod, setKpiPeriod] = useState<Period>("month");
-  const [chartPeriod, setChartPeriod] = useState<"week" | "month">("month");
+  const { data: allRuns = [] } = useActivities("running");
+  const [period, setPeriod] = useState<Period>("month");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+
+  const handlePeriodChange = (p: Period) => {
+    setPeriod(p);
+    setSelectedRunId(null);
+  };
 
   // VO2Max latest
   const { data: vo2Data } = useQuery({
@@ -64,10 +70,25 @@ export default function Running() {
     },
   });
 
-  const cutoff = useMemo(() => periodCutoff(kpiPeriod), [kpiPeriod]);
+  // Period boundaries
+  const periodRange = useMemo(() => {
+    const now = new Date();
+    if (period === "week") {
+      return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+    }
+    if (period === "month") {
+      return { start: startOfMonth(now), end: endOfMonth(now) };
+    }
+    return { start: startOfYear(now), end: endOfYear(now) };
+  }, [period]);
+
+  // KPI filtered runs
   const filteredRuns = useMemo(
-    () => allRuns.filter((r) => isAfter(new Date(r.start_time), cutoff)),
-    [allRuns, cutoff]
+    () => allRuns.filter((r) => {
+      const d = new Date(r.start_time);
+      return d >= periodRange.start && d <= periodRange.end;
+    }),
+    [allRuns, periodRange]
   );
 
   const totalDist = filteredRuns.reduce((s, r) => s + (r.distance_meters || 0), 0);
@@ -77,20 +98,28 @@ export default function Running() {
   const vo2Prev = vo2Data?.[1]?.value;
   const vo2Trend = vo2Value && vo2Prev ? vo2Value - vo2Prev : 0;
 
-  // Build calendar-based chart data (every day of the period)
-  const chartData = useMemo(() => {
-    const now = new Date();
-    let days: Date[];
-    if (chartPeriod === "week") {
-      const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
-      days = eachDayOfInterval({ start: weekStart, end: weekEnd });
-    } else {
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
-      days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+  // Chart data
+  const chartData: ChartEntry[] = useMemo(() => {
+    if (period === "year") {
+      const months = eachMonthOfInterval({ start: periodRange.start, end: periodRange.end });
+      return months.map((month) => {
+        const monthRuns = allRuns.filter((r) => {
+          const d = new Date(r.start_time);
+          return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
+        });
+        const km = monthRuns.reduce((s, r) => s + (r.distance_meters || 0), 0) / 1000;
+        const lastRun = monthRuns.length > 0 ? monthRuns[0] : null;
+        return {
+          label: format(month, "MMM", { locale: fr }),
+          dateLabel: format(month, "MMMM yyyy", { locale: fr }),
+          km: Math.round(km * 10) / 10,
+          hasActivity: monthRuns.length > 0,
+          id: lastRun?.id ?? null,
+        };
+      });
     }
 
+    const days = eachDayOfInterval({ start: periodRange.start, end: periodRange.end });
     return days.map((day) => {
       const dayRuns = allRuns.filter((r) => {
         const rd = new Date(r.start_time);
@@ -100,43 +129,30 @@ export default function Running() {
       });
       const km = dayRuns.reduce((s, r) => s + (r.distance_meters || 0), 0) / 1000;
       return {
-        date: format(day, "yyyy-MM-dd"),
-        dateLabel: format(day, "EEEE d MMMM", { locale: fr }),
-        id: dayRuns.length > 0 ? dayRuns[0].id : null,
-        label: chartPeriod === "week"
+        label: period === "week"
           ? format(day, "EEE", { locale: fr })
           : format(day, "d"),
+        dateLabel: format(day, "EEEE d MMMM", { locale: fr }),
         km: Math.round(km * 10) / 10,
         hasActivity: dayRuns.length > 0,
+        id: dayRuns.length > 0 ? dayRuns[0].id : null,
       };
     });
-  }, [allRuns, chartPeriod]);
-
-  // Sync KPIs with chart period range
-  const chartFilteredRuns = useMemo(() => {
-    const now = new Date();
-    let start: Date;
-    if (chartPeriod === "week") {
-      start = startOfWeek(now, { weekStartsOn: 1 });
-    } else {
-      start = startOfMonth(now);
-    }
-    return allRuns.filter((r) => {
-      const d = new Date(r.start_time);
-      return d >= start;
-    });
-  }, [allRuns, chartPeriod]);
+  }, [allRuns, period, periodRange]);
 
   // Default to latest run if nothing selected
-  const displayRunId = selectedRunId ?? (allRuns.length > 0 ? allRuns[0].id : null);
+  const displayRunId = selectedRunId ?? (filteredRuns.length > 0 ? filteredRuns[0].id : null);
   const selectedRun = displayRunId ? allRuns.find((r) => r.id === displayRunId) : null;
+
+  const barMaxSize = period === "week" ? 40 : period === "month" ? 16 : 28;
+  const xAxisInterval = period === "month" ? 4 : 0;
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-display font-bold text-foreground">Running</h1>
-        <PeriodSelector value={kpiPeriod} onChange={setKpiPeriod} />
+        <PeriodSelector value={period} onChange={handlePeriodChange} />
       </div>
 
       {/* KPI Cards */}
@@ -183,35 +199,20 @@ export default function Running() {
 
       {/* Bar Chart */}
       <div className="glass-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-semibold text-foreground">Distance par sortie</h3>
-          <div className="flex gap-1 rounded-lg bg-secondary p-0.5">
-            {(["week", "month"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => { setChartPeriod(p); setSelectedRunId(null); }}
-                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                  chartPeriod === p
-                    ? "bg-running text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {p === "week" ? "Semaine" : "Mois"}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h3 className="font-display font-semibold text-foreground mb-4">
+          {period === "year" ? "Distance par mois" : "Distance par jour"}
+        </h3>
         <div className="h-[250px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
               onClick={(e) => {
-                const payload = e?.activePayload?.[0]?.payload;
+                const payload = e?.activePayload?.[0]?.payload as ChartEntry | undefined;
                 if (payload?.hasActivity && payload?.id) {
                   setSelectedRunId(payload.id);
                 }
               }}
-              barCategoryGap={chartPeriod === "month" ? "20%" : "30%"}
+              barCategoryGap={period === "week" ? "30%" : "20%"}
             >
               <defs>
                 <linearGradient id="runGradient" x1="0" y1="0" x2="0" y2="1">
@@ -225,7 +226,7 @@ export default function Running() {
                 stroke="hsl(var(--muted-foreground))"
                 fontSize={11}
                 tickLine={false}
-                interval={chartPeriod === "month" ? 4 : 0}
+                interval={xAxisInterval}
               />
               <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} unit=" km" tickLine={false} axisLine={false} />
               <Tooltip
@@ -237,12 +238,12 @@ export default function Running() {
                 }}
                 formatter={(value: number) => [value > 0 ? `${value} km` : "Repos", "Distance"]}
                 labelFormatter={(_, payload) => {
-                  const item = payload?.[0]?.payload;
+                  const item = payload?.[0]?.payload as ChartEntry | undefined;
                   return item?.dateLabel ?? "";
                 }}
                 cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
               />
-              <Bar dataKey="km" radius={[3, 3, 0, 0]} cursor="pointer" maxBarSize={chartPeriod === "month" ? 16 : 40}>
+              <Bar dataKey="km" radius={[3, 3, 0, 0]} cursor="pointer" maxBarSize={barMaxSize}>
                 {chartData.map((entry, i) => (
                   <Cell
                     key={i}
