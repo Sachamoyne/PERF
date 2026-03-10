@@ -6,13 +6,14 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from "recharts";
 import {
-  format, isAfter, subYears,
+  format,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear,
   eachDayOfInterval, eachMonthOfInterval,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { MapPin, Mountain, Wind, TrendingUp, TrendingDown, Clock, Heart, ArrowUp, Footprints } from "lucide-react";
+import { MapPin, Mountain, Wind, TrendingUp, TrendingDown, Clock, Heart, ArrowUp, Footprints, ChevronRight } from "lucide-react";
 import { computePace } from "@/lib/garmin-utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Period = "week" | "month" | "year";
 
@@ -44,16 +45,21 @@ type ChartEntry = {
   km: number;
   hasActivity: boolean;
   id: string | null;
+  monthIndex?: number; // for year view drill-down
 };
 
 export default function Running() {
   const { data: allRuns = [] } = useActivities("running");
   const [period, setPeriod] = useState<Period>("month");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null); // 0-11 for year view
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
 
   const handlePeriodChange = (p: Period) => {
     setPeriod(p);
     setSelectedRunId(null);
+    setSelectedMonth(null);
+    setExpandedRunId(null);
   };
 
   // VO2Max latest
@@ -108,13 +114,13 @@ export default function Running() {
           return d.getFullYear() === month.getFullYear() && d.getMonth() === month.getMonth();
         });
         const km = monthRuns.reduce((s, r) => s + (r.distance_meters || 0), 0) / 1000;
-        const lastRun = monthRuns.length > 0 ? monthRuns[0] : null;
         return {
           label: format(month, "MMM", { locale: fr }),
           dateLabel: format(month, "MMMM yyyy", { locale: fr }),
           km: Math.round(km * 10) / 10,
           hasActivity: monthRuns.length > 0,
-          id: lastRun?.id ?? null,
+          id: monthRuns.length > 0 ? monthRuns[0].id : null,
+          monthIndex: month.getMonth(),
         };
       });
     }
@@ -140,12 +146,46 @@ export default function Running() {
     });
   }, [allRuns, period, periodRange]);
 
-  // Default to latest run if nothing selected
+  // For year view: get runs of the selected month (default: current month)
+  const displayMonth = selectedMonth ?? new Date().getMonth();
+  const monthRuns = useMemo(() => {
+    if (period !== "year") return [];
+    const year = new Date().getFullYear();
+    return allRuns
+      .filter((r) => {
+        const d = new Date(r.start_time);
+        return d.getFullYear() === year && d.getMonth() === displayMonth;
+      })
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+  }, [allRuns, period, displayMonth]);
+
+  const displayMonthLabel = useMemo(() => {
+    const d = new Date(new Date().getFullYear(), displayMonth, 1);
+    return format(d, "MMMM yyyy", { locale: fr });
+  }, [displayMonth]);
+
+  // For week/month view: selected run detail
   const displayRunId = selectedRunId ?? (filteredRuns.length > 0 ? filteredRuns[0].id : null);
   const selectedRun = displayRunId ? allRuns.find((r) => r.id === displayRunId) : null;
+  const expandedRun = expandedRunId ? allRuns.find((r) => r.id === expandedRunId) : null;
+
+  // Highlight logic for year view
+  const activeMonthIndex = period === "year" ? displayMonth : null;
 
   const barMaxSize = period === "week" ? 40 : period === "month" ? 16 : 28;
   const xAxisInterval = period === "month" ? 4 : 0;
+
+  const handleBarClick = (e: any) => {
+    const payload = e?.activePayload?.[0]?.payload as ChartEntry | undefined;
+    if (!payload?.hasActivity) return;
+
+    if (period === "year" && payload.monthIndex !== undefined) {
+      setSelectedMonth(payload.monthIndex);
+      setExpandedRunId(null);
+    } else if (payload.id) {
+      setSelectedRunId(payload.id);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -206,12 +246,7 @@ export default function Running() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
-              onClick={(e) => {
-                const payload = e?.activePayload?.[0]?.payload as ChartEntry | undefined;
-                if (payload?.hasActivity && payload?.id) {
-                  setSelectedRunId(payload.id);
-                }
-              }}
+              onClick={handleBarClick}
               barCategoryGap={period === "week" ? "30%" : "20%"}
             >
               <defs>
@@ -250,11 +285,17 @@ export default function Running() {
                     fill={
                       !entry.hasActivity
                         ? "hsl(var(--muted))"
-                        : entry.id === displayRunId
+                        : period === "year" && entry.monthIndex === activeMonthIndex
                           ? "hsl(var(--rhr))"
-                          : "url(#runGradient)"
+                          : period !== "year" && entry.id === displayRunId
+                            ? "hsl(var(--rhr))"
+                            : "url(#runGradient)"
                     }
-                    opacity={displayRunId && entry.id !== displayRunId ? 0.4 : entry.hasActivity ? 1 : 0.3}
+                    opacity={
+                      period === "year"
+                        ? (activeMonthIndex !== null && entry.monthIndex !== activeMonthIndex ? 0.4 : entry.hasActivity ? 1 : 0.3)
+                        : (displayRunId && entry.id !== displayRunId ? 0.4 : entry.hasActivity ? 1 : 0.3)
+                    }
                   />
                 ))}
               </Bar>
@@ -263,8 +304,16 @@ export default function Running() {
         </div>
       </div>
 
-      {/* Activity detail or empty state */}
-      {selectedRun ? (
+      {/* Detail section — differs by period */}
+      {period === "year" ? (
+        <YearMonthDetail
+          monthLabel={displayMonthLabel}
+          runs={monthRuns}
+          expandedRunId={expandedRunId}
+          onExpandRun={setExpandedRunId}
+          expandedRun={expandedRun}
+        />
+      ) : selectedRun ? (
         <div
           key={selectedRun.id}
           className="glass-card p-5 border-l-4 border-running animate-fade-in"
@@ -295,6 +344,104 @@ export default function Running() {
     </div>
   );
 }
+
+/* ── Year view: Monthly activity list with drill-down ── */
+
+type YearMonthDetailProps = {
+  monthLabel: string;
+  runs: any[];
+  expandedRunId: string | null;
+  onExpandRun: (id: string | null) => void;
+  expandedRun: any;
+};
+
+function YearMonthDetail({ monthLabel, runs, expandedRunId, onExpandRun, expandedRun }: YearMonthDetailProps) {
+  return (
+    <div className="space-y-3 animate-fade-in">
+      <div className="glass-card p-5 border-l-4 border-running">
+        <h3 className="font-display font-semibold text-foreground mb-4 capitalize">
+          Activités de {monthLabel}
+        </h3>
+
+        {runs.length === 0 ? (
+          <div className="flex items-center justify-center py-8 text-muted-foreground text-sm">
+            <Footprints className="h-4 w-4 mr-2 opacity-50" />
+            Aucune activité ce mois-ci
+          </div>
+        ) : (
+          <div className="rounded-lg border border-border overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/30 hover:bg-muted/30">
+                  <TableHead className="text-xs font-medium text-muted-foreground">Date</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Distance</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Allure</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">D+</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground">Durée</TableHead>
+                  <TableHead className="text-xs font-medium text-muted-foreground w-8"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {runs.map((run, i) => (
+                  <TableRow
+                    key={run.id}
+                    onClick={() => onExpandRun(expandedRunId === run.id ? null : run.id)}
+                    className={`cursor-pointer transition-colors ${
+                      i % 2 === 0 ? "bg-background" : "bg-muted/10"
+                    } ${expandedRunId === run.id ? "bg-running/10 hover:bg-running/15" : "hover:bg-muted/30"}`}
+                  >
+                    <TableCell className="text-sm font-medium text-foreground py-3">
+                      {format(new Date(run.start_time), "EEE d MMM", { locale: fr })}
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground py-3">
+                      {((run.distance_meters || 0) / 1000).toFixed(2)} km
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground py-3">
+                      {computePace(run.duration_sec, run.distance_meters || 0)} /km
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground py-3">
+                      {(run.total_elevation_gain || 0).toFixed(0)} m
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground py-3">
+                      {formatDuration(run.duration_sec)}
+                    </TableCell>
+                    <TableCell className="py-3">
+                      <ChevronRight className={`h-4 w-4 text-muted-foreground transition-transform ${expandedRunId === run.id ? "rotate-90" : ""}`} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+
+      {/* Expanded run detail */}
+      {expandedRun && (
+        <div key={expandedRun.id} className="glass-card p-5 border-l-4 border-rhr animate-fade-in">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-display font-semibold text-foreground">
+              Détail — {format(new Date(expandedRun.start_time), "EEEE d MMMM yyyy, HH:mm", { locale: fr })}
+            </h3>
+            <button onClick={() => onExpandRun(null)} className="text-muted-foreground hover:text-foreground text-sm">
+              ✕
+            </button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <DetailStat icon={<MapPin className="h-4 w-4 text-running" />} label="Distance" value={`${((expandedRun.distance_meters || 0) / 1000).toFixed(2)} km`} />
+            <DetailStat icon={<Clock className="h-4 w-4 text-running" />} label="Durée" value={formatDuration(expandedRun.duration_sec)} />
+            <DetailStat icon={<Footprints className="h-4 w-4 text-running" />} label="Allure moy." value={`${computePace(expandedRun.duration_sec, expandedRun.distance_meters || 0)} /km`} />
+            <DetailStat icon={<Heart className="h-4 w-4 text-rhr" />} label="FC Moyenne" value={expandedRun.avg_hr ? `${expandedRun.avg_hr} bpm` : "—"} />
+            <DetailStat icon={<Mountain className="h-4 w-4 text-running" />} label="Dénivelé" value={`${(expandedRun.total_elevation_gain || 0).toFixed(0)} m`} />
+            <DetailStat icon={<ArrowUp className="h-4 w-4 text-muted-foreground" />} label="Calories" value={expandedRun.calories ? `${expandedRun.calories} kcal` : "—"} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Shared sub-components ── */
 
 function DetailStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
