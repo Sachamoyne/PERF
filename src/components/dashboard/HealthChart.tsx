@@ -51,9 +51,11 @@ export function HealthChart() {
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, vals]) => ({
         date,
-        dateLabel: days <= 30
+        dateLabel: days <= 7
           ? format(new Date(date), "dd/MM")
-          : format(new Date(date), "dd/MM/yy"),
+          : days <= 90
+            ? format(new Date(date), "dd MMM")
+            : format(new Date(date), "MMM yy"),
         hrv: vals.hrv ?? null,
         sleep_score: vals.sleep_score ?? null,
         weight: vals.weight ?? null,
@@ -80,7 +82,14 @@ export function HealthChart() {
   ];
 
   // Show fewer ticks on longer periods
-  const tickInterval = days <= 30 ? 0 : days <= 90 ? 6 : 29;
+  // Dynamically compute tick interval based on actual data length
+  const tickInterval = useMemo(() => {
+    const len = chartData.length;
+    if (len <= 10) return 0;
+    if (len <= 35) return 4; // ~every 5 days for 1m
+    if (len <= 100) return 13; // ~every 2 weeks for 3m
+    return Math.floor(len / 12); // ~12 ticks for 1a
+  }, [chartData.length]);
 
   return (
     <div className="glass-card p-6 space-y-4">
@@ -111,7 +120,7 @@ export function HealthChart() {
               interval={tickInterval}
               tick={({ x, y, payload }: any) => {
                 const entry = chartData.find((d) => d.dateLabel === payload.value);
-                const icons = days <= 30
+                const icons = days <= 7
                   ? entry?.sports?.map((s) => sportIcons[s] || "⚡").join("") || ""
                   : "";
                 return (
@@ -127,7 +136,7 @@ export function HealthChart() {
                   </g>
                 );
               }}
-              height={days <= 30 ? 45 : 30}
+              height={days <= 7 ? 45 : 30}
             />
             <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={11} />
             <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--muted-foreground))" fontSize={11} />
