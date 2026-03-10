@@ -127,7 +127,9 @@ export default function Running() {
     });
   }, [allRuns, chartPeriod]);
 
-  const selectedRun = selectedRunId ? allRuns.find((r) => r.id === selectedRunId) : null;
+  // Default to latest run if nothing selected
+  const displayRunId = selectedRunId ?? (allRuns.length > 0 ? allRuns[0].id : null);
+  const selectedRun = displayRunId ? allRuns.find((r) => r.id === displayRunId) : null;
 
   return (
     <div className="space-y-4">
@@ -139,7 +141,6 @@ export default function Running() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {/* Distance */}
         <div className="glass-card p-4 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-running/15">
             <MapPin className="h-5 w-5 text-running" />
@@ -151,8 +152,6 @@ export default function Running() {
             <p className="text-xs text-muted-foreground">Distance totale</p>
           </div>
         </div>
-
-        {/* Dénivelé */}
         <div className="glass-card p-4 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-running/15">
             <Mountain className="h-5 w-5 text-running" />
@@ -164,8 +163,6 @@ export default function Running() {
             <p className="text-xs text-muted-foreground">Dénivelé total</p>
           </div>
         </div>
-
-        {/* VO2Max */}
         <div className="glass-card p-4 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-vo2max/15">
             <Wind className="h-5 w-5 text-vo2max" />
@@ -181,7 +178,6 @@ export default function Running() {
               </span>
             )}
           </div>
-          <p className="text-xs text-muted-foreground sr-only">VO2 Max</p>
         </div>
       </div>
 
@@ -213,8 +209,6 @@ export default function Running() {
                 const payload = e?.activePayload?.[0]?.payload;
                 if (payload?.hasActivity && payload?.id) {
                   setSelectedRunId(payload.id);
-                } else {
-                  setSelectedRunId(null);
                 }
               }}
               barCategoryGap={chartPeriod === "month" ? "20%" : "30%"}
@@ -244,7 +238,7 @@ export default function Running() {
                 formatter={(value: number) => [value > 0 ? `${value} km` : "Repos", "Distance"]}
                 labelFormatter={(_, payload) => {
                   const item = payload?.[0]?.payload;
-                  return item?.date ? format(item.date, "EEEE d MMMM", { locale: fr }) : "";
+                  return item?.dateLabel ?? "";
                 }}
                 cursor={{ fill: "hsl(var(--accent))", opacity: 0.3 }}
               />
@@ -255,11 +249,11 @@ export default function Running() {
                     fill={
                       !entry.hasActivity
                         ? "hsl(var(--muted))"
-                        : entry.id === selectedRunId
+                        : entry.id === displayRunId
                           ? "hsl(var(--rhr))"
                           : "url(#runGradient)"
                     }
-                    opacity={selectedRunId && entry.id !== selectedRunId ? 0.4 : entry.hasActivity ? 1 : 0.3}
+                    opacity={displayRunId && entry.id !== displayRunId ? 0.4 : entry.hasActivity ? 1 : 0.3}
                   />
                 ))}
               </Bar>
@@ -268,12 +262,15 @@ export default function Running() {
         </div>
       </div>
 
-      {/* Drill-down detail */}
-      {selectedRun && (
-        <div className="glass-card p-5 border-l-4 border-running animate-in fade-in slide-in-from-top-2 duration-200">
+      {/* Activity detail or empty state */}
+      {selectedRun ? (
+        <div
+          key={selectedRun.id}
+          className="glass-card p-5 border-l-4 border-running animate-fade-in"
+        >
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-display font-semibold text-foreground">
-              Détail — {format(parseISO(selectedRun.start_time), "EEEE d MMMM yyyy, HH:mm", { locale: fr })}
+              Détail — {format(new Date(selectedRun.start_time), "EEEE d MMMM yyyy, HH:mm", { locale: fr })}
             </h3>
             <button onClick={() => setSelectedRunId(null)} className="text-muted-foreground hover:text-foreground text-sm">
               ✕
@@ -288,43 +285,12 @@ export default function Running() {
             <DetailStat icon={<ArrowUp className="h-4 w-4 text-muted-foreground" />} label="Calories" value={selectedRun.calories ? `${selectedRun.calories} kcal` : "—"} />
           </div>
         </div>
-      )}
-
-      {/* History as compact cards */}
-      <div>
-        <h3 className="font-display font-semibold text-foreground mb-3">Dernières sorties</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {allRuns.slice(0, 10).map((r) => {
-            const distKm = (r.distance_meters || 0) / 1000;
-            return (
-              <button
-                key={r.id}
-                onClick={() => setSelectedRunId(r.id)}
-                className={`glass-card p-4 text-left transition-all hover:ring-1 hover:ring-running/50 ${
-                  r.id === selectedRunId ? "ring-1 ring-running" : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-running/15 mt-0.5">
-                    <Footprints className="h-4 w-4 text-running" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {format(parseISO(r.start_time), "EEEE d MMMM", { locale: fr })}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                      <span>{distKm.toFixed(1)} km</span>
-                      <span>{computePace(r.duration_sec, r.distance_meters || 0)} /km</span>
-                      <span>{Math.round(r.duration_sec / 60)} min</span>
-                      {r.avg_hr && <span>{r.avg_hr} bpm</span>}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+      ) : (
+        <div className="glass-card p-6 flex items-center justify-center text-muted-foreground text-sm animate-fade-in">
+          <Footprints className="h-4 w-4 mr-2 opacity-50" />
+          Sélectionnez une activité sur le graphique pour voir les détails
         </div>
-      </div>
+      )}
     </div>
   );
 }
