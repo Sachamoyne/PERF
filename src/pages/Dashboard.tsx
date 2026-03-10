@@ -1,11 +1,13 @@
 import { Heart, Moon, Activity, Wind } from "lucide-react";
 import { useLatestMetrics } from "@/hooks/useHealthData";
 import { KpiCard } from "@/components/dashboard/KpiCard";
+import { HealthChart } from "@/components/dashboard/HealthChart";
+import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { RecentActivities } from "@/components/dashboard/RecentActivities";
 import { SyncBanner } from "@/components/dashboard/SyncBanner";
 import { HrvTrendBadge } from "@/components/dashboard/HrvTrendBadge";
-import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
+import { MetricsHistory } from "@/components/dashboard/MetricsHistory";
 
 const kpiConfig = [
   { key: "hrv", label: "HRV", icon: <Activity className="h-4 w-4" />, color: "hsl(152, 60%, 48%)" },
@@ -20,12 +22,13 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-display font-bold text-foreground">Dashboard</h1>
+        <h1 className="text-2xl font-display font-bold text-foreground">Vue d'ensemble</h1>
         <HrvTrendBadge />
       </div>
 
       <SyncBanner />
 
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiConfig.map((kpi) => {
           const m = metrics?.[kpi.key];
@@ -43,9 +46,21 @@ export default function Dashboard() {
         })}
       </div>
 
-      <WeeklySummary />
+      {/* Health Chart + Weekly Summary side by side on large screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <HealthChart />
+        </div>
+        <div>
+          <WeeklySummary />
+        </div>
+      </div>
+
       <ActivityHeatmap />
       <RecentActivities />
+
+      {/* Collapsible metrics history */}
+      <MetricsHistory />
     </div>
   );
 }

@@ -34,7 +34,6 @@ function ProtectedRoutes() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/health" element={<Health />} />
         <Route path="/running" element={<Running />} />
         <Route path="/racket" element={<Racket />} />
         <Route path="/strength" element={<Strength />} />
