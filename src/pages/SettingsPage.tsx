@@ -26,7 +26,10 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [apiKeyLoading, setApiKeyLoading] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [mockLoading, setMockLoading] = useState(false);
   const syncStatus = useSyncStatus();
+  const queryClient = useQueryClient();
+  const isDev = import.meta.env.DEV;
 
   const endpointUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/apple-health-sync`;
 
