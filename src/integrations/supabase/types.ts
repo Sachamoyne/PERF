@@ -22,6 +22,10 @@ export type Database = {
           distance_meters: number | null
           duration_sec: number
           id: string
+          match_result: string | null
+          match_score: string | null
+          opponent_name: string | null
+          session_type: string | null
           sport_type: Database["public"]["Enums"]["sport_type"]
           start_time: string
           total_elevation_gain: number | null
@@ -34,6 +38,10 @@ export type Database = {
           distance_meters?: number | null
           duration_sec: number
           id?: string
+          match_result?: string | null
+          match_score?: string | null
+          opponent_name?: string | null
+          session_type?: string | null
           sport_type: Database["public"]["Enums"]["sport_type"]
           start_time: string
           total_elevation_gain?: number | null
@@ -46,6 +54,10 @@ export type Database = {
           distance_meters?: number | null
           duration_sec?: number
           id?: string
+          match_result?: string | null
+          match_score?: string | null
+          opponent_name?: string | null
+          session_type?: string | null
           sport_type?: Database["public"]["Enums"]["sport_type"]
           start_time?: string
           total_elevation_gain?: number | null
