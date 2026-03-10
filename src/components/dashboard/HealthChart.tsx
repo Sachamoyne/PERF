@@ -1,10 +1,10 @@
 import { useState, useMemo } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  ReferenceDot,
 } from "recharts";
 import { format } from "date-fns";
 import { useHealthMetrics, useActivities } from "@/hooks/useHealthData";
+import { useBodyMetrics } from "@/hooks/useBodyMetrics";
 import { Button } from "@/components/ui/button";
 
 const sportIcons: Record<string, string> = {
@@ -16,12 +16,15 @@ const sportIcons: Record<string, string> = {
   strength: "🏋️",
 };
 
-export function HealthChart() {
-  const [days, setDays] = useState<7 | 30>(7);
-  const { data: metrics = [] } = useHealthMetrics(30);
-  const { data: activities = [] } = useActivities(undefined, 100);
+type Period = 7 | 30 | 90 | 365;
 
-  const { chartData, activityDays } = useMemo(() => {
+export function HealthChart() {
+  const [days, setDays] = useState<Period>(7);
+  const { data: metrics = [] } = useHealthMetrics(days);
+  const { data: activities = [] } = useActivities(undefined, 500);
+  const { data: bodyMetrics = [] } = useBodyMetrics(days);
+
+  const chartData = useMemo(() => {
     // Build activity day map
     const actDays: Record<string, string[]> = {};
     activities.forEach((a) => {
@@ -30,58 +33,71 @@ export function HealthChart() {
       if (!actDays[day].includes(a.sport_type)) actDays[day].push(a.sport_type);
     });
 
-    // Group by date
-    const byDate: Record<string, Record<string, number>> = {};
+    // Group health metrics by date
+    const byDate: Record<string, Record<string, number | null>> = {};
     metrics.forEach((m) => {
       if (!byDate[m.date]) byDate[m.date] = {};
       byDate[m.date][m.metric_type] = m.value;
+    });
+
+    // Merge body metrics
+    bodyMetrics.forEach((b) => {
+      if (!byDate[b.date]) byDate[b.date] = {};
+      if (b.weight_kg != null) byDate[b.date].weight = b.weight_kg;
+      if (b.body_fat_pc != null) byDate[b.date].body_fat = b.body_fat_pc;
     });
 
     const allData = Object.entries(byDate)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, vals]) => ({
         date,
-        dateLabel: format(new Date(date), "dd/MM"),
+        dateLabel: days <= 30
+          ? format(new Date(date), "dd/MM")
+          : format(new Date(date), "dd/MM/yy"),
         hrv: vals.hrv ?? null,
         sleep_score: vals.sleep_score ?? null,
-        rhr: vals.rhr ?? null,
+        weight: vals.weight ?? null,
+        body_fat: vals.body_fat ?? null,
         sports: actDays[date] || [],
       }));
 
     // Compute 7-day moving average for HRV
-    const withMA = allData.map((entry, idx) => {
+    return allData.map((entry, idx) => {
       const window = allData.slice(Math.max(0, idx - 6), idx + 1);
       const hrvValues = window.map((w) => w.hrv).filter((v): v is number => v !== null);
-      const hrvMA = hrvValues.length > 0 ? Math.round((hrvValues.reduce((s, v) => s + v, 0) / hrvValues.length) * 10) / 10 : null;
+      const hrvMA = hrvValues.length > 0
+        ? Math.round((hrvValues.reduce((s, v) => s + v, 0) / hrvValues.length) * 10) / 10
+        : null;
       return { ...entry, hrv_ma: hrvMA };
     });
+  }, [metrics, days, activities, bodyMetrics]);
 
-    const sliced = days === 7 ? withMA.slice(-7) : withMA;
+  const periods: { label: string; value: Period }[] = [
+    { label: "7j", value: 7 },
+    { label: "1m", value: 30 },
+    { label: "3m", value: 90 },
+    { label: "1a", value: 365 },
+  ];
 
-    return { chartData: sliced, activityDays: actDays };
-  }, [metrics, days, activities]);
+  // Show fewer ticks on longer periods
+  const tickInterval = days <= 30 ? 0 : days <= 90 ? 6 : 29;
 
   return (
     <div className="glass-card p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="font-display font-semibold text-foreground">HRV, Sommeil & FC Repos</h3>
+        <h3 className="font-display font-semibold text-foreground">HRV (moy.), Sommeil, Poids & Masse Grasse</h3>
         <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant={days === 7 ? "default" : "ghost"}
-            onClick={() => setDays(7)}
-            className="text-xs h-7 px-3"
-          >
-            7j
-          </Button>
-          <Button
-            size="sm"
-            variant={days === 30 ? "default" : "ghost"}
-            onClick={() => setDays(30)}
-            className="text-xs h-7 px-3"
-          >
-            30j
-          </Button>
+          {periods.map((p) => (
+            <Button
+              key={p.value}
+              size="sm"
+              variant={days === p.value ? "default" : "ghost"}
+              onClick={() => setDays(p.value)}
+              className="text-xs h-7 px-3"
+            >
+              {p.label}
+            </Button>
+          ))}
         </div>
       </div>
       <div className="h-[300px]">
@@ -91,13 +107,16 @@ export function HealthChart() {
             <XAxis
               dataKey="dateLabel"
               stroke="hsl(var(--muted-foreground))"
-              fontSize={12}
+              fontSize={11}
+              interval={tickInterval}
               tick={({ x, y, payload }: any) => {
                 const entry = chartData.find((d) => d.dateLabel === payload.value);
-                const icons = entry?.sports?.map((s) => sportIcons[s] || "⚡").join("") || "";
+                const icons = days <= 30
+                  ? entry?.sports?.map((s) => sportIcons[s] || "⚡").join("") || ""
+                  : "";
                 return (
                   <g transform={`translate(${x},${y})`}>
-                    <text x={0} y={0} dy={14} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={12}>
+                    <text x={0} y={0} dy={14} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize={11}>
                       {payload.value}
                     </text>
                     {icons && (
@@ -108,9 +127,10 @@ export function HealthChart() {
                   </g>
                 );
               }}
-              height={45}
+              height={days <= 30 ? 45 : 30}
             />
-            <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+            <YAxis yAxisId="left" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+            <YAxis yAxisId="right" orientation="right" stroke="hsl(var(--muted-foreground))" fontSize={11} />
             <Tooltip
               contentStyle={{
                 backgroundColor: "hsl(var(--card))",
@@ -120,19 +140,10 @@ export function HealthChart() {
               }}
             />
             <Legend />
-            <Line type="monotone" dataKey="hrv" name="HRV" stroke="hsl(var(--hrv))" strokeWidth={2} dot={false} />
-            <Line
-              type="monotone"
-              dataKey="hrv_ma"
-              name="HRV (moy. 7j)"
-              stroke="hsl(var(--hrv))"
-              strokeWidth={1.5}
-              strokeDasharray="6 3"
-              dot={false}
-              opacity={0.5}
-            />
-            <Line type="monotone" dataKey="sleep_score" name="Sommeil" stroke="hsl(var(--sleep))" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="rhr" name="FC Repos" stroke="hsl(var(--rhr))" strokeWidth={2} dot={false} />
+            <Line yAxisId="left" type="monotone" dataKey="hrv_ma" name="HRV (moy. 7j)" stroke="hsl(var(--hrv))" strokeWidth={2} dot={false} />
+            <Line yAxisId="left" type="monotone" dataKey="sleep_score" name="Sommeil (h)" stroke="hsl(var(--sleep))" strokeWidth={2} dot={false} />
+            <Line yAxisId="right" type="monotone" dataKey="weight" name="Poids (kg)" stroke="hsl(var(--strength))" strokeWidth={2} dot={false} />
+            <Line yAxisId="right" type="monotone" dataKey="body_fat" name="Masse Grasse (%)" stroke="hsl(var(--running))" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>
