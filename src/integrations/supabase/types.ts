@@ -107,6 +107,7 @@ export type Database = {
           exercise_name: string
           id: string
           reps: number
+          session_id: string | null
           sets: number
           user_id: string
           weight_kg: number
@@ -116,6 +117,7 @@ export type Database = {
           exercise_name: string
           id?: string
           reps?: number
+          session_id?: string | null
           sets?: number
           user_id: string
           weight_kg?: number
@@ -125,11 +127,20 @@ export type Database = {
           exercise_name?: string
           id?: string
           reps?: number
+          session_id?: string | null
           sets?: number
           user_id?: string
           weight_kg?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "exercise_stats_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       health_metrics: {
         Row: {
