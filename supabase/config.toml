@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.manual-import]
 verify_jwt = false
+
+[functions.apple-health-sync]
+verify_jwt = false
