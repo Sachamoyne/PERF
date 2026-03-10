@@ -3,10 +3,8 @@ import { KpiCard } from "@/components/dashboard/KpiCard";
 import { HealthChart } from "@/components/dashboard/HealthChart";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
-import { RecentActivities } from "@/components/dashboard/RecentActivities";
 import { SyncBanner } from "@/components/dashboard/SyncBanner";
 import { HrvTrendBadge } from "@/components/dashboard/HrvTrendBadge";
-import { MetricsHistory } from "@/components/dashboard/MetricsHistory";
 import { ReadinessScore } from "@/components/dashboard/ReadinessScore";
 
 const kpiConfig = [
@@ -49,9 +47,6 @@ export default function Dashboard() {
           <ActivityHeatmap />
         </div>
       </div>
-
-      <RecentActivities />
-      <MetricsHistory />
     </div>
   );
 }
