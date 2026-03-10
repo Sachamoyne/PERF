@@ -41,7 +41,8 @@ export function AppHeader() {
 
   const handleMockData = async () => {
     if (!user) {
-      toast.error("Connectez-vous d'abord");
+      toast.error("Connectez-vous d'abord via la page Paramètres");
+      navigate("/settings");
       return;
     }
     setMocking(true);
