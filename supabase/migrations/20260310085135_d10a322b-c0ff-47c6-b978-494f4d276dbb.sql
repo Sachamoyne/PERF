@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS api_key text UNIQUE DEFAULT NULL;

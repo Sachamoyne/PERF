@@ -85,6 +85,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          api_key: string | null
           birth_date: string | null
           created_at: string
           full_name: string | null
@@ -96,6 +97,7 @@ export type Database = {
           weight_kg: number | null
         }
         Insert: {
+          api_key?: string | null
           birth_date?: string | null
           created_at?: string
           full_name?: string | null
@@ -107,6 +109,7 @@ export type Database = {
           weight_kg?: number | null
         }
         Update: {
+          api_key?: string | null
           birth_date?: string | null
           created_at?: string
           full_name?: string | null
