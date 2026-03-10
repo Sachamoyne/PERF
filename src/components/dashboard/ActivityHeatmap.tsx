@@ -7,12 +7,7 @@ import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
-interface DayData {
-  sessions: number;
-  totalMinutes: number;
-}
+const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
 function useMonthlyHeatmap(month: Date) {
   const start = startOfMonth(month);
@@ -23,17 +18,15 @@ function useMonthlyHeatmap(month: Date) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("activities")
-        .select("start_time, duration_sec")
+        .select("start_time")
         .gte("start_time", start.toISOString())
         .lte("start_time", end.toISOString());
       if (error) throw error;
 
-      const map: Record<string, DayData> = {};
+      const map: Record<string, number> = {};
       data?.forEach((a) => {
         const day = a.start_time.split("T")[0];
-        if (!map[day]) map[day] = { sessions: 0, totalMinutes: 0 };
-        map[day].sessions++;
-        map[day].totalMinutes += Math.round(a.duration_sec / 60);
+        map[day] = (map[day] || 0) + 1;
       });
       return map;
     },
@@ -50,7 +43,6 @@ export function ActivityHeatmap() {
   const calendarGrid = useMemo(() => {
     const daysInMonth = getDaysInMonth(currentMonth);
     const firstDay = startOfMonth(currentMonth);
-    // getDay: 0=Sun, convert to Mon-based (0=Mon)
     let startOffset = getDay(firstDay) - 1;
     if (startOffset < 0) startOffset = 6;
 
@@ -63,83 +55,68 @@ export function ActivityHeatmap() {
     return grid;
   }, [currentMonth]);
 
-  const getIntensity = (minutes: number) => {
-    if (minutes === 0) return "bg-secondary";
-    if (minutes <= 30) return "bg-primary/25";
-    if (minutes <= 60) return "bg-primary/50";
-    if (minutes <= 120) return "bg-primary/75";
-    return "bg-primary";
-  };
-
-  const formatMinutes = (min: number) => {
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return h > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${m} min`;
-  };
-
   return (
     <div className="glass-card p-4 space-y-3">
       {/* Header with navigation */}
       <div className="flex items-center justify-between">
         <h3 className="font-display font-semibold text-sm text-foreground">
-          Activité d'entraînement
+          Régularité
         </h3>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-6 w-6"
             onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-3.5 w-3.5" />
           </Button>
-          <span className="text-sm font-medium text-foreground min-w-[100px] text-center capitalize">
+          <span className="text-xs font-medium text-muted-foreground min-w-[90px] text-center capitalize">
             {format(currentMonth, "MMMM yyyy", { locale: fr })}
           </span>
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-6 w-6"
             onClick={() => setCurrentMonth((m) => addMonths(m, 1))}
             disabled={!canGoNext}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
       {/* Weekday headers */}
-      <div className="grid grid-cols-7 gap-1">
-        {WEEKDAYS.map((d) => (
-          <div key={d} className="text-[10px] text-muted-foreground text-center font-medium">
-            {d}
+      <div className="grid grid-cols-7 gap-[6px]">
+        {WEEKDAYS.map((d, i) => (
+          <div key={i} className="flex items-center justify-center">
+            <span className="text-[9px] text-muted-foreground font-medium">{d}</span>
           </div>
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1">
+      {/* Dot grid */}
+      <div className="grid grid-cols-7 gap-[6px]">
         {calendarGrid.map((cell, i) => {
           if (!cell) {
-            return <div key={`empty-${i}`} className="aspect-square" />;
+            return <div key={`empty-${i}`} className="flex items-center justify-center h-[14px]" />;
           }
-          const data = dayData[cell.date];
-          const sessions = data?.sessions ?? 0;
-          const totalMin = data?.totalMinutes ?? 0;
+          const sessions = dayData[cell.date] ?? 0;
+          const active = sessions > 0;
 
           return (
             <Tooltip key={cell.date}>
               <TooltipTrigger asChild>
-                <div
-                  className={`aspect-square rounded-md flex items-center justify-center text-[11px] font-medium cursor-default transition-colors ${getIntensity(totalMin)} ${sessions > 0 ? "text-primary-foreground" : "text-muted-foreground"}`}
-                >
-                  {cell.day}
+                <div className="flex items-center justify-center h-[14px]">
+                  <div
+                    className={`w-[10px] h-[10px] rounded-full transition-colors ${active ? "bg-primary" : "bg-secondary"}`}
+                  />
                 </div>
               </TooltipTrigger>
               <TooltipContent side="top" className="text-xs">
                 <p className="font-medium">{format(new Date(cell.date), "d MMMM yyyy", { locale: fr })}</p>
-                {sessions > 0 ? (
-                  <p>{sessions} séance{sessions > 1 ? "s" : ""} · {formatMinutes(totalMin)}</p>
+                {active ? (
+                  <p>{sessions} séance{sessions > 1 ? "s" : ""}</p>
                 ) : (
                   <p className="text-muted-foreground">Repos</p>
                 )}
@@ -147,17 +124,6 @@ export function ActivityHeatmap() {
             </Tooltip>
           );
         })}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-        <span>Repos</span>
-        <div className="w-3 h-3 rounded-sm bg-secondary" />
-        <div className="w-3 h-3 rounded-sm bg-primary/25" />
-        <div className="w-3 h-3 rounded-sm bg-primary/50" />
-        <div className="w-3 h-3 rounded-sm bg-primary/75" />
-        <div className="w-3 h-3 rounded-sm bg-primary" />
-        <span>Intense</span>
       </div>
     </div>
   );

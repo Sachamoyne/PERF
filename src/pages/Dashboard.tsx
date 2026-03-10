@@ -21,7 +21,7 @@ export default function Dashboard() {
   const { data: metrics } = useLatestMetrics();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-display font-bold text-foreground">Vue d'ensemble</h1>
         <HrvTrendBadge />
@@ -30,7 +30,7 @@ export default function Dashboard() {
       <SyncBanner />
 
       {/* KPI Cards + Readiness Score */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {kpiConfig.map((kpi) => {
           const m = metrics?.[kpi.key];
           return (
@@ -48,20 +48,16 @@ export default function Dashboard() {
         <ReadinessScore />
       </div>
 
-      {/* Health Chart (left) + Weekly Summary & Heatmap (right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <HealthChart />
-        </div>
-        <div className="flex flex-col gap-4">
+      {/* Main content: Chart (2fr) + Sidebar (1fr) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3">
+        <HealthChart />
+        <div className="flex flex-col gap-3">
           <WeeklySummary />
           <ActivityHeatmap />
         </div>
       </div>
 
       <RecentActivities />
-
-      {/* Collapsible metrics history */}
       <MetricsHistory />
     </div>
   );
