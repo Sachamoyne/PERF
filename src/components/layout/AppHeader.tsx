@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useAuth } from "@/hooks/useAuth";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
-import { insertMockData, clearMockData } from "@/lib/mock-data";
+import { generateTestData, clearTestData } from "@/lib/mock-data";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
