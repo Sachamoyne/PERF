@@ -1,6 +1,7 @@
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
+import { AppleHealthOnboarding } from "@/components/health/AppleHealthOnboarding";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 overflow-y-auto p-6">{children}</main>
         </div>
       </div>
+      <AppleHealthOnboarding />
     </SidebarProvider>
   );
 }
