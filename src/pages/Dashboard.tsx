@@ -4,6 +4,7 @@ import { HealthChart } from "@/components/dashboard/HealthChart";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
 import { SyncBanner } from "@/components/dashboard/SyncBanner";
+import { SyncStatusCard } from "@/components/dashboard/SyncStatusCard";
 import { HrvTrendBadge } from "@/components/dashboard/HrvTrendBadge";
 
 const kpiConfig = [
@@ -23,6 +24,7 @@ export default function Dashboard() {
       </div>
 
       <SyncBanner />
+      <SyncStatusCard />
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
