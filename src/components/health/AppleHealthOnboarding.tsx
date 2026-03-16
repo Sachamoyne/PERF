@@ -60,7 +60,7 @@ export function AppleHealthOnboarding() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="glass-card border-glass-border max-w-md">
+      <DialogContent className="glass-card border-glass-border max-w-md bg-background/85 backdrop-blur-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -91,7 +91,7 @@ export function AppleHealthOnboarding() {
           </Button>
           <Button
             size="sm"
-            className="bg-primary/90 hover:bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(34,197,94,0.45)]"
+            className="bg-sky-500 hover:bg-sky-400 text-white shadow-[0_10px_30px_rgba(56,189,248,0.55)]"
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
           >

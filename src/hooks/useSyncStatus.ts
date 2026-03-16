@@ -21,7 +21,7 @@ export function useSyncStatus() {
         .from("profiles")
         .select("last_sync")
         .eq("user_id", user!.id)
-        .single();
+        .maybeSingle(); // .single() → 406 (PGRST116) si 0 lignes ; maybeSingle() retourne null
 
       const lastSync = data?.last_sync ? new Date(data.last_sync) : null;
 

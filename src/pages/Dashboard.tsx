@@ -3,7 +3,6 @@ import { KpiCard } from "@/components/dashboard/KpiCard";
 import { HealthChart } from "@/components/dashboard/HealthChart";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { ActivityHeatmap } from "@/components/dashboard/ActivityHeatmap";
-import { SyncBanner } from "@/components/dashboard/SyncBanner";
 import { SyncStatusCard } from "@/components/dashboard/SyncStatusCard";
 import { HrvTrendBadge } from "@/components/dashboard/HrvTrendBadge";
 
@@ -23,7 +22,6 @@ export default function Dashboard() {
         <HrvTrendBadge />
       </div>
 
-      <SyncBanner />
       <SyncStatusCard />
 
       {/* KPI Cards */}

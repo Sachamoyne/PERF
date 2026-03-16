@@ -25,9 +25,9 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Nous avons besoin de vos données HRV pour calculer votre score de récupération</string>
+	<string>Athletes Ascent lit votre variabilité de fréquence cardiaque (HRV) et votre poids depuis Apple Santé pour calculer votre score de forme et suivre votre progression.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>Synchronisation des données de performance.</string>
+	<string>Athletes Ascent peut enregistrer vos données d'entraînement dans Apple Santé.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

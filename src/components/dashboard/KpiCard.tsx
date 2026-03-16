@@ -26,9 +26,16 @@ interface KpiCardProps {
   invertDelta?: boolean;
 }
 
-function useMetricHistory(metricType: string, days: number) {
+const HEALTH_METRIC_TYPES: MetricType[] = ["hrv", "sleep_score", "rhr", "body_battery", "vo2max"];
+
+function isHealthMetricType(metricType: string): metricType is MetricType {
+  return (HEALTH_METRIC_TYPES as string[]).includes(metricType);
+}
+
+function useMetricHistory(metricType: string, days: number, enabled: boolean) {
   return useQuery({
     queryKey: ["kpi_metric", metricType, days],
+    enabled,
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - days);
@@ -67,7 +74,8 @@ export function KpiCard({ metricType, label, color, icon, source = "health_metri
   const [periodIdx, setPeriodIdx] = useState(0);
   const period = PERIODS[periodIdx];
 
-  const { data: healthHistory = [] } = useMetricHistory(metricType, period.days);
+  const enableHealthQuery = source === "health_metrics" && isHealthMetricType(metricType);
+  const { data: healthHistory = [] } = useMetricHistory(metricType, period.days, enableHealthQuery);
   const { data: bodyHistory = [] } = useBodyMetricHistory(bodyField || "weight_kg", period.days);
 
   const history = source === "body_metrics" ? bodyHistory : healthHistory;

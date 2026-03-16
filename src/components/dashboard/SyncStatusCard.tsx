@@ -31,7 +31,9 @@ export function SyncStatusCard() {
 
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error("Non authentifié");
+      // Guard explicite : ne jamais appeler HealthKit sans session valide
+      console.log("[auth] Current User:", user ?? "null — sync bloquée");
+      if (!user) throw new Error("Non authentifié — reconnecte-toi avant de synchroniser.");
       return syncAppleHealth(user.id);
     },
     onSuccess: () => {
@@ -54,7 +56,7 @@ export function SyncStatusCard() {
   const connectionLabel = isIos ? "Apple Health disponible" : "Apple Health non disponible sur cet appareil";
 
   return (
-    <div className="glass-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-glass-border/60 bg-background/70">
+    <div className="glass-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border border-glass-border/60 bg-background/80 backdrop-blur-xl">
       <div className="flex items-start gap-3">
         <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center shadow-[0_0_20px_rgba(34,197,94,0.3)]">
           <Smartphone className="h-5 w-5 text-primary" />
@@ -69,7 +71,7 @@ export function SyncStatusCard() {
       <div className="flex items-center gap-3">
         {mutation.isSuccess && !isSyncing && (
           <span className="text-xs text-primary/80">
-            Synchronisation terminée ({mutation.data?.importedSamples ?? 0} échantillons)
+            Synchronisation Apple Health terminée ({mutation.data?.importedSamples ?? 0} échantillons)
           </span>
         )}
         {mutation.isError && !isSyncing && (
@@ -79,7 +81,7 @@ export function SyncStatusCard() {
         )}
         <Button
           size="sm"
-          className="relative overflow-hidden bg-primary/90 hover:bg-primary text-primary-foreground shadow-[0_12px_30px_rgba(34,197,94,0.45)]"
+          className="relative overflow-hidden bg-sky-500 hover:bg-sky-400 text-white shadow-[0_10px_30px_rgba(56,189,248,0.55)]"
           onClick={() => mutation.mutate()}
           disabled={isSyncing || !user}
         >
