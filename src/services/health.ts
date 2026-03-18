@@ -104,6 +104,25 @@ function sleepNightDate(isoDate: string): string {
   return d.toISOString().split("T")[0];
 }
 
+/** Regroupe les échantillons par jour et calcule la moyenne journalière. */
+function groupByDayAverage(samples: HealthSample[]): HealthSample[] {
+  const map = new Map<string, { sum: number; count: number; unit: string }>();
+  for (const s of samples) {
+    const prev = map.get(s.date);
+    if (prev) {
+      prev.sum += s.value;
+      prev.count += 1;
+    } else {
+      map.set(s.date, { sum: s.value, count: 1, unit: s.unit });
+    }
+  }
+  return Array.from(map.entries()).map(([date, { sum, count, unit }]) => ({
+    date,
+    value: Math.round((sum / count) * 100) / 100,
+    unit,
+  }));
+}
+
 /** Regroupe les échantillons par jour et additionne les valeurs (pas de moyenne). */
 function groupByDaySum(samples: HealthSample[]): HealthSample[] {
   const map = new Map<string, { sum: number; unit: string }>();
@@ -239,26 +258,21 @@ export async function requestHealthPermissions(): Promise<HealthPermissionResult
     // Les types invalides (vo2max, bmi, leanBodyMass...) provoquent une exception native.
     // Certains builds du plugin demandent une autorisation explicite pour les workouts.
     // On tente d'inclure "workout(s)" dans la liste, et on fallback si le plugin rejette le type.
+    // Uniquement les HealthDataType valides du plugin @capgo/capacitor-health v8.
+    // Ne jamais ajouter un type absent de cette liste → crash bridge natif.
     const baseRead = [
-      "steps",
-      "calories",
-      "heartRate",
+      "heartRateVariability",
       "weight",
       "sleep",
-      "restingHeartRate",
-      "heartRateVariability",
-      "bodyFat",
-      "exerciseTime",
-      "basalCalories",
+      "steps",
+      "calories",
       "totalCalories",
+      "basalCalories",
+      "bodyFat",
+      "restingHeartRate",
     ];
 
-    // dietaryProtein n'est pas garanti par toutes les versions du plugin → on le tente
-    // en premier et on retombe sur les listes sans lui si ça échoue.
     const tryReadLists: string[][] = [
-      [...baseRead, "dietaryProtein", "workouts"],
-      [...baseRead, "dietaryProtein", "workout"],
-      [...baseRead, "dietaryProtein"],
       [...baseRead, "workouts"],
       [...baseRead, "workout"],
       baseRead,
@@ -379,45 +393,124 @@ async function fetchNativeSleep(days: number): Promise<SleepSample[]> {
   }
 }
 
-/** Récupère les pas journaliers (totalisation par jour). */
+/** Récupère les pas journaliers via queryAggregated (sum par bucket "day"). */
 async function fetchDailySteps(days: number): Promise<HealthSample[]> {
-  const raw = await fetchSamples("steps", days);
-  console.log(`[health] fetchDailySteps: ${raw.length} échantillons bruts`);
-  return groupByDaySum(raw).map((s) => ({ ...s, unit: "count" }));
+  const { startDate, endDate } = isoRange(days);
+  try {
+    const result = await (Health as any).queryAggregated({
+      dataType: "steps",
+      startDate,
+      endDate,
+      bucket: "day",
+      aggregation: "sum",
+    });
+    const samples: HealthSample[] = (result.samples ?? [])
+      .map((s: any) => ({
+        date:  s.startDate.split("T")[0],
+        value: Math.round(Number(s.value)),
+        unit:  "count",
+      }))
+      .filter((s: HealthSample) => Number.isFinite(s.value) && s.value > 0);
+    console.log(`[health] fetchDailySteps: ${samples.length} jours`);
+    return samples;
+  } catch (err) {
+    console.error("[health] ÉCHEC queryAggregated(steps) :", err);
+    return [];
+  }
 }
 
 /**
- * Récupère les calories totales journalières.
- * Essaie d'abord "totalCalories". Si vide, additionne "calories" (actives) + "basalCalories".
- * Si basalCalories indisponible, utilise uniquement les actives.
+ * Récupère les calories totales journalières via queryAggregated.
+ * Essaie d'abord "totalCalories" (actives + basales combinées).
+ * Fallback : "calories" (actives) + "basalCalories" agrégés séparément puis sommés par jour.
  */
 async function fetchDailyCalories(days: number): Promise<HealthSample[]> {
-  let raw = await fetchSamples("totalCalories", days);
-  if (raw.length === 0) {
-    const [active, basal] = await Promise.all([
-      fetchSamples("calories", days),
-      fetchSamples("basalCalories", days),
-    ]);
+  const { startDate, endDate } = isoRange(days);
+
+  const aggDay = async (dataType: string): Promise<HealthSample[]> => {
+    try {
+      const result = await (Health as any).queryAggregated({
+        dataType,
+        startDate,
+        endDate,
+        bucket: "day",
+        aggregation: "sum",
+      });
+      return (result.samples ?? [])
+        .map((s: any) => ({
+          date:  s.startDate.split("T")[0],
+          value: Math.round(Number(s.value)),
+          unit:  "kcal",
+        }))
+        .filter((s: HealthSample) => Number.isFinite(s.value) && s.value > 0);
+    } catch (err) {
+      console.error(`[health] ÉCHEC queryAggregated(${dataType}) :`, err);
+      return [];
+    }
+  };
+
+  let samples = await aggDay("totalCalories");
+
+  if (samples.length === 0) {
+    const [active, basal] = await Promise.all([aggDay("calories"), aggDay("basalCalories")]);
     console.log(`[health] fetchDailyCalories fallback: actives=${active.length}, basal=${basal.length}`);
-    raw = [...active, ...basal];
+    // Additionner actives + basal par jour
+    samples = groupByDaySum([...active, ...basal]).map((s) => ({ ...s, unit: "kcal" }));
   }
-  if (raw.length === 0) {
+
+  if (samples.length === 0) {
     console.log("[health] fetchDailyCalories: aucune donnée disponible");
     return [];
   }
-  console.log(`[health] fetchDailyCalories: ${raw.length} échantillons bruts`);
-  return groupByDaySum(raw).map((s) => ({ ...s, unit: "kcal" }));
+  console.log(`[health] fetchDailyCalories: ${samples.length} jours`);
+  return samples;
 }
 
 /**
- * Récupère les protéines journalières via dietaryProtein (MyFitnessPal → Apple Health).
- * Retourne [] sans erreur si le type est indisponible.
+ * "dietaryProtein" n'existe pas dans @capgo/capacitor-health v8.
+ * Retourne toujours [] sans appel natif.
  */
-async function fetchDietaryProtein(days: number): Promise<HealthSample[]> {
-  const raw = await fetchSamples("dietaryProtein", days);
-  console.log(`[health] fetchDietaryProtein: ${raw.length} échantillons bruts`);
-  if (raw.length === 0) return [];
-  return groupByDaySum(raw).map((s) => ({ ...s, unit: "g" }));
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function fetchDietaryProtein(_days: number): Promise<HealthSample[]> {
+  console.log("[health] fetchDietaryProtein: type non supporté par le plugin, skip");
+  return [];
+}
+
+/**
+ * Récupère le taux de masse grasse via readSamples("bodyFat").
+ * HealthKit retourne une fraction (0–1) → on convertit en % (*100).
+ * Retourne la moyenne journalière (groupByDayAverage).
+ */
+async function fetchBodyFat(days: number): Promise<HealthSample[]> {
+  const { startDate, endDate } = isoRange(days);
+  try {
+    const result = await Health.readSamples({
+      dataType: "bodyFat" as any,
+      startDate,
+      endDate,
+      limit: 500,
+      ascending: true,
+    });
+    const samples: HealthSample[] = (result.samples ?? [])
+      .map((s: any) => {
+        const raw = Number(s.value);
+        // HealthKit stocke en fraction (0.18) → convertir en % (18)
+        const value = Number.isFinite(raw) && raw > 0 && raw <= 1.5
+          ? Math.round(raw * 10000) / 100
+          : Math.round(raw * 10) / 10;
+        return {
+          date:  s.startDate.split("T")[0],
+          value,
+          unit:  "%",
+        };
+      })
+      .filter((s: HealthSample) => Number.isFinite(s.value) && s.value > 0);
+    console.log(`[health] fetchBodyFat: ${samples.length} échantillons bruts`);
+    return groupByDayAverage(samples);
+  } catch (err) {
+    console.error("[health] ÉCHEC readSamples(bodyFat) :", err);
+    return [];
+  }
 }
 
 async function fetchNativeWorkouts(days: number): Promise<WorkoutData[]> {
@@ -475,12 +568,12 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
       fetchSamples("heartRateVariability", days),
       fetchSamples("weight", days),
       fetchSamples("restingHeartRate", days),
-      fetchSamples("bodyFat", days),
+      fetchBodyFat(days),                    // dédié : fraction→%, groupByDayAverage
       fetchNativeSleep(days),
       fetchNativeWorkouts(days),
-      fetchDailySteps(days),
-      fetchDailyCalories(days),
-      fetchDietaryProtein(days),
+      fetchDailySteps(days),                 // queryAggregated bucket day sum
+      fetchDailyCalories(days),              // queryAggregated bucket day sum
+      fetchDietaryProtein(days),             // retourne [] (type non supporté)
     ]);
 
   const sleepVal = sleep.status === "fulfilled" ? sleep.value : [];
