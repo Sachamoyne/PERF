@@ -252,7 +252,7 @@ export type Database = {
       clear_user_data: { Args: { _user_id: string }; Returns: Json }
     }
     Enums: {
-      metric_type: "hrv" | "sleep_score" | "rhr" | "body_battery" | "vo2max"
+      metric_type: "hrv" | "sleep_score" | "rhr" | "body_battery" | "vo2max" | "steps" | "calories_total" | "protein" | "calorie_balance" | "sleep_hours"
       sport_type:
         | "running"
         | "cycling"
@@ -387,7 +387,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      metric_type: ["hrv", "sleep_score", "rhr", "body_battery", "vo2max"],
+      metric_type: ["hrv", "sleep_score", "rhr", "body_battery", "vo2max", "steps", "calories_total", "protein", "calorie_balance", "sleep_hours"],
       sport_type: [
         "running",
         "cycling",
