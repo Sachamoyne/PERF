@@ -1,10 +1,12 @@
-import { Moon, Footprints, Scale, Percent, Wind, Activity, ChevronLeft, ChevronRight } from "lucide-react";
+import { Footprints, Scale, Percent, Wind, Activity, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { CaloriesCard } from "@/components/dashboard/CaloriesCard";
 import { WorkoutTodayCard } from "@/components/dashboard/WorkoutTodayCard";
+import { SleepManualCard } from "@/components/dashboard/SleepManualCard";
+import { ManualMetricCard } from "@/components/dashboard/ManualMetricCard";
 import { CalorieBalanceCard } from "@/components/dashboard/CalorieBalanceCard";
 import { HealthChart } from "@/components/dashboard/HealthChart";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
@@ -49,13 +51,7 @@ export default function Dashboard() {
       {/* Row 1 : Calories + Sommeil + Poids */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <CaloriesCard />
-        <KpiCard
-          metricType="sleep_hours"
-          label="Sommeil"
-          unit="h"
-          color="hsl(217, 91%, 60%)"
-          icon={<Moon className="h-4 w-4" />}
-        />
+        <SleepManualCard />
         <KpiCard
           metricType="weight"
           label="Poids"
@@ -88,19 +84,21 @@ export default function Dashboard() {
 
       {/* Row 3 : HRV + VO2Max + Masse Grasse */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KpiCard
+        <ManualMetricCard
           metricType="hrv"
           label="HRV"
           unit="ms"
           color="hsl(152, 60%, 48%)"
           icon={<Activity className="h-4 w-4" />}
+          targetValue={60}
         />
-        <KpiCard
+        <ManualMetricCard
           metricType="vo2max"
           label="VO2Max"
           unit="ml/kg/min"
           color="hsl(172, 66%, 50%)"
           icon={<Wind className="h-4 w-4" />}
+          targetValue={50}
         />
         <KpiCard
           metricType="body_fat"

@@ -211,6 +211,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sleep_logs: {
+        Row: {
+          bedtime: string | null
+          created_at: string
+          date: string
+          duration_hours: number | null
+          id: string
+          notes: string | null
+          score: number | null
+          updated_at: string
+          user_id: string
+          wake_time: string | null
+        }
+        Insert: {
+          bedtime?: string | null
+          created_at?: string
+          date?: string
+          duration_hours?: number | null
+          id?: string
+          notes?: string | null
+          score?: number | null
+          updated_at?: string
+          user_id: string
+          wake_time?: string | null
+        }
+        Update: {
+          bedtime?: string | null
+          created_at?: string
+          date?: string
+          duration_hours?: number | null
+          id?: string
+          notes?: string | null
+          score?: number | null
+          updated_at?: string
+          user_id?: string
+          wake_time?: string | null
+        }
+        Relationships: []
+      }
       sync_logs: {
         Row: {
           created_at: string

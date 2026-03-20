@@ -72,11 +72,23 @@ export function SyncStatusCard() {
       </div>
 
       <div className="flex items-center gap-3">
-        {mutation.isSuccess && !isSyncing && (
-          <span className="text-xs text-primary/80">
-            Sync terminé — HRV: {mutation.data?.importedHrv ?? 0}, Sommeil: {mutation.data?.importedSleep ?? 0}, Pas: {mutation.data?.importedSteps ?? 0}, Calories: {mutation.data?.importedCalories ?? 0}, Protéines: {mutation.data?.importedProtein ?? 0}, Poids: {mutation.data?.importedWeight ?? 0}
-          </span>
-        )}
+        {mutation.isSuccess && !isSyncing && (() => {
+          const d = mutation.data;
+          const diag = d?.diagnosticReport;
+          const auth = diag?.permissions.authorized ?? [];
+          const s = diag?.samples;
+          return (
+            <div className="text-xs text-primary/80 space-y-0.5">
+              <p>Sync terminé — HRV: {d?.importedHrv ?? 0}, Sommeil: {d?.importedSleep ?? 0}, Pas: {d?.importedSteps ?? 0}, Calories: {d?.importedCalories ?? 0}, Poids: {d?.importedWeight ?? 0}</p>
+              {diag && (
+                <>
+                  <p className="text-muted-foreground">Permissions: {auth.length > 0 ? auth.join(", ") : "aucune"}</p>
+                  <p className="text-muted-foreground">Données trouvées: steps={s?.steps ?? "?"} j, calories={s?.calories ?? "?"} j, hrv={s?.hrv ?? "?"}, sleep={s?.sleep ?? "?"}, weight={s?.weight ?? "?"}</p>
+                </>
+              )}
+            </div>
+          );
+        })()}
         {mutation.isError && !isSyncing && (
           <span className="text-xs text-destructive/80">
             {(mutation.error as Error).message || "Erreur de synchronisation"}

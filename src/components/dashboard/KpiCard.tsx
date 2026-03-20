@@ -26,7 +26,18 @@ interface KpiCardProps {
   invertDelta?: boolean;
 }
 
-const HEALTH_METRIC_TYPES: MetricType[] = ["hrv", "sleep_score", "rhr", "body_battery", "vo2max"];
+const HEALTH_METRIC_TYPES: MetricType[] = [
+  "hrv",
+  "sleep_score",
+  "rhr",
+  "body_battery",
+  "vo2max",
+  "steps",
+  "calories_total",
+  "protein",
+  "calorie_balance",
+  "sleep_hours",
+];
 
 function isHealthMetricType(metricType: string): metricType is MetricType {
   return (HEALTH_METRIC_TYPES as string[]).includes(metricType);

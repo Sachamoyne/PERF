@@ -41,11 +41,11 @@ export function HealthChart() {
     });
 
     // Merge body metrics
-    bodyMetrics.forEach((b) => {
+    for (const b of bodyMetrics) {
       if (!byDate[b.date]) byDate[b.date] = {};
-      if (b.weight_kg != null) byDate[b.date].weight = b.weight_kg;
-      if (b.body_fat_pc != null) byDate[b.date].body_fat = b.body_fat_pc;
-    });
+      if (b.weight_kg != null) byDate[b.date]["weight"] = b.weight_kg;
+      if (b.body_fat_pc != null) byDate[b.date]["body_fat"] = b.body_fat_pc;
+    }
 
     const allData = Object.entries(byDate)
       .sort(([a], [b]) => a.localeCompare(b))
@@ -59,7 +59,7 @@ export function HealthChart() {
               ? format(new Date(date), "dd/MM/yy")
               : format(new Date(date), "MM/yyyy"),
         hrv: vals.hrv ?? null,
-        sleep_score: vals.sleep_score ?? null,
+        sleep_hours: vals.sleep_hours ?? null,
         weight: vals.weight ?? null,
         body_fat: vals.body_fat ?? null,
         sports: actDays[date] || [],
@@ -96,7 +96,7 @@ export function HealthChart() {
   return (
     <div className="glass-card p-6 space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h3 className="font-display font-semibold text-foreground">HRV (moy.), Sommeil, Poids & Masse Grasse</h3>
+        <h3 className="font-display font-semibold text-foreground">Tendances — HRV, Sommeil, Poids & Masse Grasse</h3>
         <div className="flex gap-1">
           {periods.map((p) => (
             <Button
@@ -159,7 +159,7 @@ export function HealthChart() {
             />
             <Legend />
             <Line yAxisId="left" type="monotone" dataKey="hrv_ma" name="HRV (moy. 7j)" stroke="hsl(var(--hrv))" strokeWidth={2} dot={false} />
-            <Line yAxisId="left" type="monotone" dataKey="sleep_score" name="Sommeil (h)" stroke="hsl(var(--sleep))" strokeWidth={2} dot={false} />
+            <Line yAxisId="left" type="monotone" dataKey="sleep_hours" name="Sommeil (h)" stroke="hsl(var(--sleep))" strokeWidth={2} dot={false} />
             <Line yAxisId="right" type="monotone" dataKey="weight" name="Poids (kg)" stroke="hsl(var(--strength))" strokeWidth={2} dot={false} />
             <Line yAxisId="right" type="monotone" dataKey="body_fat" name="Masse Grasse (%)" stroke="hsl(var(--running))" strokeWidth={2} dot={false} />
           </LineChart>

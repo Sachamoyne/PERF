@@ -17,6 +17,7 @@
 
 import { Health } from "@capgo/capacitor-health";
 import type { Workout } from "@capgo/capacitor-health/dist/esm/definitions";
+import { NutritionPlugin } from "@/plugins/nutritionPlugin";
 
 // ─── Diagnostic au chargement ────────────────────────────────────────────────
 if (!Health) {
@@ -62,7 +63,7 @@ export interface HealthSnapshot {
   bodyFat:       HealthSample[];
   sleep:         SleepSample[];
   workouts:      WorkoutData[];
-  sleepHours:    HealthSample[];   // total heures de sommeil par nuit (h)
+  sleepHours:    HealthSample[];   // non sync (saisie manuelle), conservé pour compatibilité
   steps:         HealthSample[];   // total pas par jour (count)
   caloriesTotal: HealthSample[];   // calories totales journalières (kcal)
   protein:       HealthSample[];   // protéines journalières (g)
@@ -138,25 +139,6 @@ function groupByDaySum(samples: HealthSample[]): HealthSample[] {
     date,
     value: Math.round(sum * 10) / 10,
     unit,
-  }));
-}
-
-/**
- * Calcule le total d'heures de sommeil par nuit à partir des SleepSample.
- * Seules les phases actives (deep, light, rem, asleep) sont comptées.
- * Retourne un HealthSample[] avec value en heures (unit: "h").
- */
-function computeSleepHoursFromSamples(sleepSamples: SleepSample[]): HealthSample[] {
-  const ACTIVE_STATES = new Set(["deep", "light", "rem", "asleep"]);
-  const byDay = new Map<string, number>();
-  for (const s of sleepSamples) {
-    if (!ACTIVE_STATES.has(s.state)) continue;
-    byDay.set(s.date, (byDay.get(s.date) ?? 0) + s.durationMin);
-  }
-  return Array.from(byDay.entries()).map(([date, totalMin]) => ({
-    date,
-    value: Math.round((totalMin / 60) * 10) / 10,
-    unit: "h",
   }));
 }
 
@@ -466,14 +448,24 @@ async function fetchDailyCalories(days: number): Promise<HealthSample[]> {
   return samples;
 }
 
-/**
- * "dietaryProtein" n'existe pas dans @capgo/capacitor-health v8.
- * Retourne toujours [] sans appel natif.
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function fetchDietaryProtein(_days: number): Promise<HealthSample[]> {
-  console.log("[health] fetchDietaryProtein: type non supporté par le plugin, skip");
-  return [];
+async function fetchDietaryProtein(days: number): Promise<HealthSample[]> {
+  if (getPlatform() !== "ios") return [];
+  try {
+    await NutritionPlugin.requestAuthorization();
+    const result = await NutritionPlugin.queryDietaryProtein({ days });
+    const samples = (result.samples ?? [])
+      .map((s) => ({
+        date: s.startDate.split("T")[0],
+        value: Number(s.value),
+        unit: "g" as string,
+      }))
+      .filter((s) => Number.isFinite(s.value) && s.value > 0);
+    console.log("[health] fetchDietaryProtein:", samples.length, "samples");
+    return groupByDaySum(samples);
+  } catch (err) {
+    console.error("[health] fetchDietaryProtein error:", err);
+    return [];
+  }
 }
 
 /**
@@ -573,7 +565,7 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
       fetchNativeWorkouts(days),
       fetchDailySteps(days),                 // queryAggregated bucket day sum
       fetchDailyCalories(days),              // queryAggregated bucket day sum
-      fetchDietaryProtein(days),             // retourne [] (type non supporté)
+      fetchDietaryProtein(days),
     ]);
 
   const sleepVal = sleep.status === "fulfilled" ? sleep.value : [];
@@ -585,7 +577,7 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
     bodyFat:       bodyFat.status       === "fulfilled" ? bodyFat.value       : [],
     sleep:         sleepVal,
     workouts:      workouts.status      === "fulfilled" ? workouts.value      : [],
-    sleepHours:    computeSleepHoursFromSamples(sleepVal),
+    sleepHours:    [],
     steps:         steps.status         === "fulfilled" ? steps.value         : [],
     caloriesTotal: caloriesTotal.status === "fulfilled" ? caloriesTotal.value : [],
     protein:       protein.status       === "fulfilled" ? protein.value       : [],
@@ -645,7 +637,7 @@ function generateDemoData(days: number): HealthSnapshot {
     bodyFat:       samples(18, 3,  "percent"),
     sleep:         sleepDemo,
     workouts:      [],
-    sleepHours:    dailySamples(() => Math.round((6.5 + Math.random() * 2.5) * 10) / 10, "h"),
+    sleepHours:    [],
     steps:         dailySamples(() => Math.round(6000 + Math.random() * 9000), "count"),
     caloriesTotal: dailySamples(() => Math.round(2800 + Math.random() * 800), "kcal"),
     protein:       dailySamples(() => Math.round(140 + Math.random() * 60), "g"),
