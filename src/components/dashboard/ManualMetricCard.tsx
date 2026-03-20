@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { Plus, TrendingDown, TrendingUp } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type ManualMetricType = "hrv" | "vo2max";
-
 type MetricType = Database["public"]["Enums"]["metric_type"];
 
 const PERIODS = [
@@ -29,21 +28,27 @@ interface ManualMetricCardProps {
   color: string;
   icon: React.ReactNode;
   targetValue?: number;
+  date?: string;
 }
 
-function useMetricHistory(metricType: ManualMetricType, days: number) {
+function useMetricHistory(metricType: ManualMetricType, days: number, date?: string) {
   return useQuery({
-    queryKey: ["kpi_metric", metricType, days],
+    queryKey: ["kpi_metric", metricType, days, date],
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const { data, error } = await supabase
+      let query = supabase
         .from("health_metrics")
         .select("value, date, unit")
-        .eq("metric_type", metricType as MetricType)
-        .gte("date", since.toISOString().split("T")[0])
-        .order("date", { ascending: true });
+        .eq("metric_type", metricType as MetricType);
 
+      if (date) {
+        query = query.eq("date", date);
+      } else {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        query = query.gte("date", since.toISOString().split("T")[0]);
+      }
+
+      const { data, error } = await query.order("date", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
@@ -54,17 +59,21 @@ function todayIso() {
   return new Date().toISOString().split("T")[0];
 }
 
-export function ManualMetricCard({ metricType, label, unit, color, icon, targetValue }: ManualMetricCardProps) {
+export function ManualMetricCard({ metricType, label, unit, color, icon, targetValue, date }: ManualMetricCardProps) {
   const [periodIdx, setPeriodIdx] = useState(0);
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(todayIso);
+  const [dateValue, setDateValue] = useState(todayIso);
   const [value, setValue] = useState("");
 
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const period = PERIODS[periodIdx];
-  const { data: history = [] } = useMetricHistory(metricType, period.days);
+  const { data: history = [] } = useMetricHistory(metricType, period.days, date);
+
+  useEffect(() => {
+    if (date) setDateValue(date);
+  }, [date]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -79,7 +88,7 @@ export function ManualMetricCard({ metricType, label, unit, color, icon, targetV
         .upsert(
           {
             user_id: user.id,
-            date,
+            date: dateValue,
             metric_type: metricType,
             value: Math.round(parsed * 100) / 100,
             unit,
@@ -95,7 +104,7 @@ export function ManualMetricCard({ metricType, label, unit, color, icon, targetV
       queryClient.invalidateQueries({ queryKey: ["latest_metrics"] });
       toast.success(`${label} enregistré`);
       setOpen(false);
-      setDate(todayIso());
+      setDateValue(date ?? todayIso());
       setValue("");
     },
     onError: (error) => {
@@ -106,13 +115,19 @@ export function ManualMetricCard({ metricType, label, unit, color, icon, targetV
   const { displayValue, delta, deltaLabel, chartData, gradientId } = useMemo(() => {
     const gId = `gradient-manual-${metricType}`;
     if (history.length === 0) {
-      return { displayValue: "—", delta: null as number | null, deltaLabel: "", chartData: [] as { v: number; i: number }[], gradientId: gId };
+      return {
+        displayValue: "—",
+        delta: null as number | null,
+        deltaLabel: "",
+        chartData: [] as { v: number; i: number }[],
+        gradientId: gId,
+      };
     }
 
     const values = history.map((d) => d.value);
     const latest = history[history.length - 1]?.value ?? 0;
     const avg = Math.round((values.reduce((s, v) => s + v, 0) / values.length) * 10) / 10;
-    const display = period.days === 7 ? latest : avg;
+    const display = date ? latest : (period.days === 7 ? latest : avg);
 
     let d: number | null = null;
     let dLabel = "";
@@ -128,7 +143,7 @@ export function ManualMetricCard({ metricType, label, unit, color, icon, targetV
       chartData: values.map((v, i) => ({ v, i })),
       gradientId: gId,
     };
-  }, [history, period.days, metricType]);
+  }, [history, period.days, metricType, date]);
 
   const progressPct = targetValue && typeof displayValue === "number"
     ? Math.min((displayValue / targetValue) * 100, 100)
@@ -166,8 +181,8 @@ export function ManualMetricCard({ metricType, label, unit, color, icon, targetV
                   <Label className="text-muted-foreground">Date</Label>
                   <Input
                     type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    value={dateValue}
+                    onChange={(e) => setDateValue(e.target.value)}
                     className="bg-secondary border-border"
                   />
                 </div>
@@ -203,7 +218,7 @@ export function ManualMetricCard({ metricType, label, unit, color, icon, targetV
           {displayValue}
         </span>
         <span className="text-[10px] text-muted-foreground ml-1">{unit}</span>
-        {period.days > 7 && history.length > 0 && (
+        {!date && period.days > 7 && history.length > 0 && (
           <span className="text-[9px] text-muted-foreground ml-1">(moy.)</span>
         )}
       </div>

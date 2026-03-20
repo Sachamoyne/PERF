@@ -22,19 +22,23 @@ const sportColors: Record<string, string> = {
   strength: "hsl(262, 83%, 58%)",
 };
 
-function useTodayWorkouts() {
+function useTodayWorkouts(date?: string) {
   return useQuery({
-    queryKey: ["today_workouts"],
+    queryKey: ["today_workouts", date],
     queryFn: async () => {
-      const today = new Date().toISOString().split("T")[0];
+      const targetDate = date ?? new Date().toISOString().split("T")[0];
       const { data: todayData } = await supabase
         .from("activities")
         .select("sport_type, duration_sec, calories, start_time")
-        .gte("start_time", `${today}T00:00:00`)
-        .lte("start_time", `${today}T23:59:59`);
+        .gte("start_time", `${targetDate}T00:00:00`)
+        .lte("start_time", `${targetDate}T23:59:59`);
 
       if ((todayData ?? []).length > 0) {
         return { mode: "today" as const, workouts: todayData ?? [] };
+      }
+
+      if (date) {
+        return { mode: "today" as const, workouts: [] };
       }
 
       const { data: latestData } = await supabase
@@ -55,8 +59,8 @@ function formatDuration(sec: number): string {
   return `${m} min`;
 }
 
-export function WorkoutTodayCard() {
-  const { data, isLoading } = useTodayWorkouts();
+export function WorkoutTodayCard({ date }: { date?: string }) {
+  const { data, isLoading } = useTodayWorkouts(date);
   const mode = data?.mode ?? "today";
   const workouts = data?.workouts ?? [];
 
@@ -97,7 +101,7 @@ export function WorkoutTodayCard() {
         ) : workouts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-1 text-center">
             <span className="text-2xl font-display font-bold" style={{ color: "hsl(152, 60%, 48%)" }}>0</span>
-            <span className="text-[10px] text-muted-foreground">min aujourd'hui</span>
+            <span className="text-[10px] text-muted-foreground">{date ? "min sur la date" : "min aujourd'hui"}</span>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -130,7 +134,7 @@ export function WorkoutTodayCard() {
       {/* Nombre de séances */}
       <div className="text-[9px] text-muted-foreground">
         {mode === "today"
-          ? `${workouts.length} séance${workouts.length !== 1 ? "s" : ""} aujourd'hui`
+          ? `${workouts.length} séance${workouts.length !== 1 ? "s" : ""} ${date ? "sur la date" : "aujourd'hui"}`
           : latestDate
             ? `${latestLabel} — ${formatDuration(totalSec)}`
             : "Aucune séance"}

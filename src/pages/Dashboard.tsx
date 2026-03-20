@@ -10,10 +10,11 @@ import { ManualMetricCard } from "@/components/dashboard/ManualMetricCard";
 import { CalorieBalanceCard } from "@/components/dashboard/CalorieBalanceCard";
 import { HealthChart } from "@/components/dashboard/HealthChart";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
-import { SyncStatusCard } from "@/components/dashboard/SyncStatusCard";
 
-function DateNav() {
-  const [offset, setOffset] = useState(0);
+function DateNav({ offset, setOffset }: {
+  offset: number;
+  setOffset: (fn: (o: number) => number) => void
+}) {
   const isToday = offset === 0;
   const date = isToday ? new Date() : subDays(new Date(), Math.abs(offset));
   const label = isToday ? "Aujourd'hui" : format(date, "d MMMM", { locale: fr });
@@ -39,19 +40,22 @@ function DateNav() {
 }
 
 export default function Dashboard() {
+  const [offset, setOffset] = useState(0);
+  const isToday = offset === 0;
+  const selectedDate = isToday ? new Date() : subDays(new Date(), Math.abs(offset));
+  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-display font-bold text-foreground">Dashboard</h1>
-        <DateNav />
+        <DateNav offset={offset} setOffset={setOffset} />
       </div>
-
-      <SyncStatusCard />
 
       {/* Row 1 : Calories + Sommeil + Poids */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <CaloriesCard />
-        <SleepManualCard />
+        <CaloriesCard date={selectedDateStr} />
+        <SleepManualCard date={selectedDateStr} />
         <KpiCard
           metricType="weight"
           label="Poids"
@@ -60,6 +64,7 @@ export default function Dashboard() {
           icon={<Scale className="h-4 w-4" />}
           source="body_metrics"
           bodyField="weight_kg"
+          date={selectedDateStr}
         />
       </div>
 
@@ -71,14 +76,16 @@ export default function Dashboard() {
           unit=""
           color="hsl(152, 60%, 48%)"
           icon={<Footprints className="h-4 w-4" />}
+          date={selectedDateStr}
         />
-        <WorkoutTodayCard />
+        <WorkoutTodayCard date={selectedDateStr} />
         <KpiCard
           metricType="protein"
           label="Protéines"
           unit="g"
           color="hsl(172, 66%, 50%)"
           icon={<Activity className="h-4 w-4" />}
+          date={selectedDateStr}
         />
       </div>
 
@@ -91,6 +98,7 @@ export default function Dashboard() {
           color="hsl(152, 60%, 48%)"
           icon={<Activity className="h-4 w-4" />}
           targetValue={60}
+          date={selectedDateStr}
         />
         <ManualMetricCard
           metricType="vo2max"
@@ -99,6 +107,7 @@ export default function Dashboard() {
           color="hsl(172, 66%, 50%)"
           icon={<Wind className="h-4 w-4" />}
           targetValue={50}
+          date={selectedDateStr}
         />
         <KpiCard
           metricType="body_fat"
@@ -109,13 +118,14 @@ export default function Dashboard() {
           source="body_metrics"
           bodyField="body_fat_pc"
           invertDelta
+          date={selectedDateStr}
         />
       </div>
 
       {/* Row 4 : Balance calorique + Semaine sportive */}
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3">
-        <CalorieBalanceCard />
-        <WeeklySummary />
+        <CalorieBalanceCard date={selectedDateStr} />
+        <WeeklySummary date={selectedDateStr} />
       </div>
 
       {/* Row 5 : Chart historique */}

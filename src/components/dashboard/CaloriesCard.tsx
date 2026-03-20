@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -11,21 +11,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
-interface MacroData {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  proteinTarget: number;
-  carbsTarget: number;
-  fatTarget: number;
-  caloriesTarget: number;
-}
-
-function useLatestNutrition() {
+function useLatestNutrition(date?: string) {
   return useQuery({
-    queryKey: ["latest_nutrition"],
+    queryKey: ["latest_nutrition", date],
     queryFn: async () => {
+      if (date) {
+        const { data } = await supabase
+          .from("health_metrics")
+          .select("metric_type, value, date")
+          .in("metric_type", ["calories_total", "protein"])
+          .eq("date", date);
+
+        if (!data || data.length === 0) return null;
+
+        const caloriesRow = data.find((row) => row.metric_type === "calories_total");
+        const proteinRow = data.find((row) => row.metric_type === "protein");
+        if (!caloriesRow && !proteinRow) return null;
+
+        return {
+          calories: caloriesRow?.value ?? 0,
+          protein: proteinRow?.value ?? 0,
+          caloriesTarget: 3400,
+          proteinTarget: 180,
+        };
+      }
+
       const today = new Date().toISOString().split("T")[0];
       const since = new Date();
       since.setDate(since.getDate() - 7);
@@ -60,14 +70,18 @@ function useLatestNutrition() {
   });
 }
 
-export function CaloriesCard() {
-  const { data, isLoading } = useLatestNutrition();
+export function CaloriesCard({ date }: { date?: string }) {
+  const { data, isLoading } = useLatestNutrition(date);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [dateStr, setDateStr] = useState(new Date().toISOString().split("T")[0]);
   const [manualCalories, setManualCalories] = useState("");
   const [manualProtein, setManualProtein] = useState("");
+
+  useEffect(() => {
+    if (date) setDateStr(date);
+  }, [date]);
 
   const insertMutation = useMutation({
     mutationFn: async () => {
@@ -122,16 +136,16 @@ export function CaloriesCard() {
     },
   });
 
-  const calories = data?.calories ?? 0;
-  const protein = data?.protein ?? 0;
+  const calories = data?.calories ?? null;
+  const protein = data?.protein ?? null;
   const caloriesTarget = data?.caloriesTarget ?? 3400;
   const proteinTarget = data?.proteinTarget ?? 180;
 
-  const pct = Math.min((calories / caloriesTarget) * 100, 100);
-  const remaining = Math.max(caloriesTarget - calories, 0);
+  const pct = calories != null ? Math.min((calories / caloriesTarget) * 100, 100) : 0;
+  const remaining = calories != null ? Math.max(caloriesTarget - calories, 0) : caloriesTarget;
 
   const donutData = [
-    { name: "Consommé", value: Math.min(calories, caloriesTarget) },
+    { name: "Consommé", value: Math.min(calories ?? 0, caloriesTarget) },
     { name: "Restant", value: remaining },
   ];
 
@@ -240,7 +254,7 @@ export function CaloriesCard() {
               <div
                 className="h-full rounded-full transition-all"
                 style={{
-                  width: `${Math.min((protein / proteinTarget) * 100, 100)}%`,
+                  width: `${Math.min(((protein ?? 0) / proteinTarget) * 100, 100)}%`,
                   background: "hsl(152, 60%, 48%)",
                 }}
               />

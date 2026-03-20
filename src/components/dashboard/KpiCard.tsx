@@ -20,6 +20,7 @@ interface KpiCardProps {
   unit: string;
   color: string;
   icon: React.ReactNode;
+  date?: string;
   source?: "health_metrics" | "body_metrics";
   bodyField?: "weight_kg" | "body_fat_pc" | "muscle_mass_kg";
   /** If true, a decrease is shown green (good) */
@@ -43,36 +44,48 @@ function isHealthMetricType(metricType: string): metricType is MetricType {
   return (HEALTH_METRIC_TYPES as string[]).includes(metricType);
 }
 
-function useMetricHistory(metricType: string, days: number, enabled: boolean) {
+function useMetricHistory(metricType: string, days: number, enabled: boolean, date?: string) {
   return useQuery({
-    queryKey: ["kpi_metric", metricType, days],
+    queryKey: ["kpi_metric", metricType, days, date],
     enabled,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const { data, error } = await supabase
+      let query = supabase
         .from("health_metrics")
         .select("value, date, unit")
-        .eq("metric_type", metricType as MetricType)
-        .gte("date", since.toISOString().split("T")[0])
-        .order("date", { ascending: true });
+        .eq("metric_type", metricType as MetricType);
+
+      if (date) {
+        query = query.eq("date", date);
+      } else {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        query = query.gte("date", since.toISOString().split("T")[0]);
+      }
+
+      const { data, error } = await query.order("date", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
   });
 }
 
-function useBodyMetricHistory(field: string, days: number) {
+function useBodyMetricHistory(field: string, days: number, date?: string) {
   return useQuery({
-    queryKey: ["kpi_body_metric", field, days],
+    queryKey: ["kpi_body_metric", field, days, date],
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const { data, error } = await supabase
+      let query = supabase
         .from("body_metrics")
-        .select("date, weight_kg, body_fat_pc, muscle_mass_kg")
-        .gte("date", since.toISOString().split("T")[0])
-        .order("date", { ascending: true });
+        .select("date, weight_kg, body_fat_pc, muscle_mass_kg");
+
+      if (date) {
+        query = query.eq("date", date);
+      } else {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        query = query.gte("date", since.toISOString().split("T")[0]);
+      }
+
+      const { data, error } = await query.order("date", { ascending: true });
       if (error) throw error;
       return (data ?? [])
         .map((d: any) => ({ value: d[field] as number | null, date: d.date }))
@@ -81,13 +94,13 @@ function useBodyMetricHistory(field: string, days: number) {
   });
 }
 
-export function KpiCard({ metricType, label, color, icon, source = "health_metrics", bodyField, invertDelta }: KpiCardProps) {
+export function KpiCard({ metricType, label, color, icon, date, source = "health_metrics", bodyField, invertDelta }: KpiCardProps) {
   const [periodIdx, setPeriodIdx] = useState(0);
   const period = PERIODS[periodIdx];
 
   const enableHealthQuery = source === "health_metrics" && isHealthMetricType(metricType);
-  const { data: healthHistory = [] } = useMetricHistory(metricType, period.days, enableHealthQuery);
-  const { data: bodyHistory = [] } = useBodyMetricHistory(bodyField || "weight_kg", period.days);
+  const { data: healthHistory = [] } = useMetricHistory(metricType, period.days, enableHealthQuery, date);
+  const { data: bodyHistory = [] } = useBodyMetricHistory(bodyField || "weight_kg", period.days, date);
 
   const history = source === "body_metrics" ? bodyHistory : healthHistory;
 
@@ -106,7 +119,7 @@ export function KpiCard({ metricType, label, color, icon, source = "health_metri
       ? (bodyField === "body_fat_pc" ? "%" : "kg")
       : (latest as any).unit || "";
 
-    const display = period.days === 7 ? latest.value : avg;
+    const display = date ? latest.value : (period.days === 7 ? latest.value : avg);
 
     let d: number | null = null;
     let dLabel = "";
@@ -125,7 +138,7 @@ export function KpiCard({ metricType, label, color, icon, source = "health_metri
       chartData: values.map((v, i) => ({ v, i })),
       gradientId: gId,
     };
-  }, [history, period.days, metricType, source, bodyField]);
+  }, [history, period.days, metricType, source, bodyField, date]);
 
   // Semantic color for delta: invertDelta means decrease = good (green)
   const deltaIsGood = delta !== null && delta !== 0
@@ -154,7 +167,7 @@ export function KpiCard({ metricType, label, color, icon, source = "health_metri
           {displayValue}
         </span>
         <span className="text-[10px] text-muted-foreground ml-1">{unit}</span>
-        {period.days > 7 && history.length > 0 && (
+        {!date && period.days > 7 && history.length > 0 && (
           <span className="text-[9px] text-muted-foreground ml-1">(moy.)</span>
         )}
       </div>

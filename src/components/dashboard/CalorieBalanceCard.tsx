@@ -1,22 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { BarChart, Bar, ResponsiveContainer, XAxis, Tooltip, ReferenceLine } from "recharts";
+import { BarChart, Bar, Cell, ResponsiveContainer, XAxis, Tooltip, ReferenceLine } from "recharts";
 import { Scale } from "lucide-react";
-import { format } from "date-fns";
+import { addDays, format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 
-function useCalorieBalance(days = 14) {
+function useCalorieBalance(days = 14, date?: string) {
   return useQuery({
-    queryKey: ["calorie_balance", days],
+    queryKey: ["calorie_balance", days, date],
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
+      const targetDate = date ? new Date(date) : new Date();
+      const start = date ? subDays(targetDate, 7) : subDays(targetDate, days);
+      const end = date ? addDays(targetDate, 7) : targetDate;
 
       const { data } = await supabase
         .from("health_metrics")
         .select("date, value")
         .eq("metric_type", "calorie_balance")
-        .gte("date", since.toISOString().split("T")[0])
+        .gte("date", start.toISOString().split("T")[0])
+        .lte("date", end.toISOString().split("T")[0])
         .order("date", { ascending: true });
 
       return (data ?? []).map((d) => ({
@@ -28,10 +30,10 @@ function useCalorieBalance(days = 14) {
   });
 }
 
-export function CalorieBalanceCard() {
-  const { data = [], isLoading } = useCalorieBalance(14);
+export function CalorieBalanceCard({ date }: { date?: string }) {
+  const { data = [], isLoading } = useCalorieBalance(14, date);
 
-  const latest = data.at(-1);
+  const latest = date ? data.find((d) => d.date === date) : data.at(-1);
   const latestValue = latest?.value ?? null;
   const color = latestValue === null
     ? "hsl(var(--muted-foreground))"
@@ -56,7 +58,7 @@ export function CalorieBalanceCard() {
           {isLoading ? "—" : latestValue !== null ? (latestValue > 0 ? `+${latestValue}` : latestValue) : "—"}
         </span>
         {latestValue !== null && (
-          <span className="text-[10px] text-muted-foreground">kcal aujourd'hui</span>
+          <span className="text-[10px] text-muted-foreground">kcal</span>
         )}
       </div>
 
@@ -91,8 +93,17 @@ export function CalorieBalanceCard() {
               <Bar
                 dataKey="value"
                 radius={[2, 2, 0, 0]}
-                fill="hsl(152, 60%, 48%)"
-              />
+              >
+                {data.map((entry) => {
+                  const selected = date && entry.date === date;
+                  return (
+                    <Cell
+                      key={entry.date}
+                      fill={selected ? "hsl(217, 91%, 60%)" : "hsl(152, 60%, 48%)"}
+                    />
+                  );
+                })}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}

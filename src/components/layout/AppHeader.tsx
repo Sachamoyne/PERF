@@ -1,8 +1,10 @@
+import { useIsFetching } from "@tanstack/react-query";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 
 export function AppHeader() {
   const { data: syncStatus } = useSyncStatus();
+  const isFetching = useIsFetching();
 
   return (
     <>
@@ -18,11 +20,13 @@ export function AppHeader() {
             <div className="flex items-center gap-1.5">
               <div
                 className={`h-2 w-2 rounded-full ${
-                  syncStatus.isRecent
-                    ? "bg-primary animate-pulse-glow"
-                    : syncStatus.isStale
-                    ? "bg-destructive"
-                    : "bg-running"
+                  isFetching > 0
+                    ? "bg-primary animate-pulse"
+                    : syncStatus?.isRecent
+                      ? "bg-primary"
+                      : syncStatus?.isStale
+                        ? "bg-destructive"
+                        : "bg-running"
                 }`}
               />
               <span className="text-xs text-muted-foreground hidden sm:inline">

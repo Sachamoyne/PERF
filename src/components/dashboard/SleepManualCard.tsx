@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Moon, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { useInsertSleepLog, useLatestSleepLog } from "@/hooks/useSleepLogs";
+import { useInsertSleepLog } from "@/hooks/useSleepLogs";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 function formatDuration(hours: number | null | undefined) {
   if (hours == null || Number.isNaN(hours)) return "—";
@@ -49,16 +51,41 @@ function scoreClasses(score: number | null) {
   return "text-destructive border-destructive/40 bg-destructive/10";
 }
 
-export function SleepManualCard() {
-  const { data: latestSleep, isLoading } = useLatestSleepLog();
+export function SleepManualCard({ date }: { date?: string }) {
+  const { data: latestSleep, isLoading } = useQuery({
+    queryKey: ["latest_sleep", date],
+    queryFn: async () => {
+      let query = supabase
+        .from("sleep_logs")
+        .select("*")
+        .order("date", { ascending: false })
+        .limit(1);
+
+      if (date) {
+        query = supabase
+          .from("sleep_logs")
+          .select("*")
+          .eq("date", date)
+          .limit(1);
+      }
+
+      const { data, error } = await query.maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+  });
   const insertSleepLog = useInsertSleepLog();
 
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(getYesterdayDate);
+  const [dateValue, setDateValue] = useState(getYesterdayDate);
   const [bedtime, setBedtime] = useState("23:30");
   const [wakeTime, setWakeTime] = useState("07:00");
   const [score, setScore] = useState(75);
   const [notes, setNotes] = useState("");
+
+  useEffect(() => {
+    if (date) setDateValue(date);
+  }, [date]);
 
   const durationHours = useMemo(() => calculateSleepDuration(bedtime, wakeTime), [bedtime, wakeTime]);
 
@@ -70,7 +97,7 @@ export function SleepManualCard() {
 
     insertSleepLog.mutate(
       {
-        date,
+        date: dateValue,
         bedtime,
         wake_time: wakeTime,
         duration_hours: durationHours,
@@ -81,7 +108,7 @@ export function SleepManualCard() {
         onSuccess: () => {
           toast.success("Sommeil enregistré");
           setOpen(false);
-          setDate(getYesterdayDate());
+          setDateValue(getYesterdayDate());
           setBedtime("23:30");
           setWakeTime("07:00");
           setScore(75);
@@ -118,8 +145,8 @@ export function SleepManualCard() {
                 <Label className="text-muted-foreground">Date</Label>
                 <Input
                   type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                  value={dateValue}
+                  onChange={(e) => setDateValue(e.target.value)}
                   className="bg-secondary border-border"
                 />
               </div>

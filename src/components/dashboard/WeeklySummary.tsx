@@ -1,4 +1,6 @@
-import { useWeeklySportSummary } from "@/hooks/useHealthData";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { addDays, subDays } from "date-fns";
 import { Timer, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -26,8 +28,51 @@ function formatMinutes(min: number): string {
   return h > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${m} min`;
 }
 
-export function WeeklySummary() {
-  const { data: summary, isLoading } = useWeeklySportSummary();
+export function WeeklySummary({ date }: { date?: string }) {
+  const targetDate = date ? new Date(date) : new Date();
+  const dayOfWeek = targetDate.getDay();
+  const monday = subDays(targetDate, dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = addDays(monday, 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  const { data: summary = [], isLoading } = useQuery({
+    queryKey: ["weekly_summary", date, monday.toISOString().slice(0, 10)],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("activities")
+        .select("sport_type, duration_sec")
+        .gte("start_time", monday.toISOString())
+        .lte("start_time", sunday.toISOString());
+
+      if (error) throw error;
+
+      const sportLabels: Record<string, string> = {
+        running: "Course",
+        cycling: "Vélo",
+        swimming: "Natation",
+        tennis: "Tennis",
+        padel: "Padel",
+        strength: "Musculation",
+      };
+
+      const bySport: Record<string, { totalMinutes: number; sessions: number }> = {};
+      for (const a of data ?? []) {
+        if (!bySport[a.sport_type]) bySport[a.sport_type] = { totalMinutes: 0, sessions: 0 };
+        bySport[a.sport_type].totalMinutes += a.duration_sec / 60;
+        bySport[a.sport_type].sessions++;
+      }
+
+      return Object.entries(bySport)
+        .map(([sport, values]) => ({
+          sport,
+          label: sportLabels[sport] ?? sport,
+          totalMinutes: Math.round(values.totalMinutes),
+          sessions: values.sessions,
+        }))
+        .sort((a, b) => b.totalMinutes - a.totalMinutes);
+    },
+  });
   const navigate = useNavigate();
 
   const totalMinutes = summary.reduce((s, item) => s + item.totalMinutes, 0);
