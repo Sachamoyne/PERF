@@ -96,7 +96,6 @@ export default function Dashboard() {
           color="hsl(152, 60%, 48%)"
           icon={<Activity className="h-4 w-4" />}
           targetValue={60}
-          date={selectedDateStr}
         />
         <ManualMetricCard
           metricType="vo2max"
@@ -105,7 +104,6 @@ export default function Dashboard() {
           color="hsl(172, 66%, 50%)"
           icon={<Wind className="h-4 w-4" />}
           targetValue={50}
-          date={selectedDateStr}
         />
         <KpiCard
           metricType="body_fat"
