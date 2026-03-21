@@ -54,6 +54,9 @@ export default function Journal() {
   const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
+    // Ne pas écraser pendant le chargement
+    if (isLoadingEntry) return;
+
     setMood((entry?.mood as MoodType | null) ?? null);
     setIntensity(entry?.mood_intensity ?? 5);
     setFreeText(entry?.free_text ?? "");
@@ -61,7 +64,7 @@ export default function Journal() {
     setGratitude2(entry?.gratitude_2 ?? "");
     setGratitude3(entry?.gratitude_3 ?? "");
     setDirty(false);
-  }, [entry?.id, selectedDateStr]);
+  }, [selectedDateStr, isLoadingEntry]);
 
   const payload = useMemo(
     () => ({
@@ -78,6 +81,7 @@ export default function Journal() {
 
   useEffect(() => {
     if (!dirty) return;
+    const capturedDate = selectedDateStr; // capture la date au moment du déclenchement
 
     const hasContent = !!(
       payload.mood ||
@@ -89,6 +93,8 @@ export default function Journal() {
     if (!hasContent) return;
 
     const timer = setTimeout(() => {
+      // Vérifier que la date n'a pas changé depuis le déclenchement
+      if (capturedDate !== payload.date) return;
       upsertJournal.mutate(payload, {
         onError: () => {
           // autosave silencieux
@@ -98,7 +104,7 @@ export default function Journal() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [dirty, payload, upsertJournal]);
+  }, [dirty, payload, upsertJournal, selectedDateStr]);
 
   const handleSave = () => {
     upsertJournal.mutate(payload, {
@@ -137,7 +143,7 @@ export default function Journal() {
             </button>
           </div>
 
-          <div className="rounded-2xl border border-border shadow-sm p-4 space-y-4 transition-all duration-200">
+          <div className={`rounded-2xl border border-border shadow-sm p-4 space-y-4 transition-opacity duration-200 ${isLoadingEntry ? "opacity-50 pointer-events-none" : ""}`}>
             <div className="space-y-2">
               <p className="text-sm font-medium">Humeur</p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">

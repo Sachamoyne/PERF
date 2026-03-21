@@ -1,10 +1,30 @@
-import { useIsFetching } from "@tanstack/react-query";
+import { useQueryClient, useIsFetching } from "@tanstack/react-query";
+import { useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { useAuth } from "@/hooks/useAuth";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
+import { syncAppleHealth } from "@/services/appleHealth";
 
 export function AppHeader() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isSyncing, setIsSyncing] = useState(false);
   const { data: syncStatus } = useSyncStatus();
   const isFetching = useIsFetching();
+
+  const handleSync = async () => {
+    if (!user || isSyncing) return;
+    setIsSyncing(true);
+    try {
+      await syncAppleHealth(user.id);
+      queryClient.invalidateQueries();
+    } catch {
+      // silencieux
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   return (
     <>
@@ -29,6 +49,14 @@ export function AppHeader() {
                         : "bg-running"
                 }`}
               />
+              <button
+                onClick={handleSync}
+                disabled={isSyncing || isFetching > 0}
+                className="h-6 w-6 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-40"
+                title="Synchroniser"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              </button>
               <span className="text-xs text-muted-foreground hidden sm:inline">
                 {syncStatus.label}
               </span>

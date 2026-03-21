@@ -22,6 +22,8 @@ export function useJournalEntry(date: string) {
   return useQuery({
     queryKey: ["journal_entry", date, user?.id],
     enabled: !!user,
+    staleTime: 0,
+    gcTime: 5 * 60_000,
     queryFn: async () => {
       const { data } = await supabase
         .from("journal_entries")
