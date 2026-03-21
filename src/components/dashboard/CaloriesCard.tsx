@@ -15,57 +15,52 @@ function useLatestNutrition(date?: string) {
   return useQuery({
     queryKey: ["latest_nutrition", date],
     queryFn: async () => {
-      if (date) {
-        const { data } = await supabase
-          .from("health_metrics")
-          .select("metric_type, value, date")
-          .in("metric_type", ["calories_total", "protein"])
-          .eq("date", date);
-
-        if (!data || data.length === 0) return null;
-
-        const caloriesRow = data.find((row) => row.metric_type === "calories_total");
-        const proteinRow = data.find((row) => row.metric_type === "protein");
-        if (!caloriesRow && !proteinRow) return null;
-
-        return {
-          calories: caloriesRow?.value ?? 0,
-          protein: proteinRow?.value ?? 0,
-          caloriesTarget: 3400,
-          proteinTarget: 180,
-        };
-      }
-
       const today = new Date().toISOString().split("T")[0];
-      const since = new Date();
-      since.setDate(since.getDate() - 7);
+      const targetDate = date ?? today;
 
       const { data } = await supabase
         .from("health_metrics")
         .select("metric_type, value, date")
         .in("metric_type", ["calories_total", "protein"])
-        .gte("date", since.toISOString().split("T")[0])
+        .eq("date", targetDate)
         .order("date", { ascending: false });
 
-      if (!data || data.length === 0) return null;
+      if (data && data.length > 0) {
+        const latest: Record<string, number> = {};
+        for (const row of data) {
+          if (!latest[row.metric_type]) latest[row.metric_type] = row.value;
+        }
+        return {
+          calories: latest["calories_total"] ?? 0,
+          protein: latest["protein"] ?? 0,
+          caloriesTarget: 3400,
+          proteinTarget: 180,
+        };
+      }
 
-      const byType = {
-        calories_total: data.filter((row) => row.metric_type === "calories_total"),
-        protein: data.filter((row) => row.metric_type === "protein"),
-      };
+      if (targetDate === today) {
+        const since = new Date();
+        since.setDate(since.getDate() - 7);
+        const { data: fallback } = await supabase
+          .from("health_metrics")
+          .select("metric_type, value, date")
+          .in("metric_type", ["calories_total", "protein"])
+          .gte("date", since.toISOString().split("T")[0])
+          .order("date", { ascending: false });
 
-      const pickValue = (rows: typeof data) => {
-        const todayRow = rows.find((row) => row.date === today);
-        if (todayRow) return todayRow.value;
-        return rows[0]?.value ?? 0;
-      };
+        const latest: Record<string, number> = {};
+        for (const row of fallback ?? []) {
+          if (!latest[row.metric_type]) latest[row.metric_type] = row.value;
+        }
+        return {
+          calories: latest["calories_total"] ?? 0,
+          protein: latest["protein"] ?? 0,
+          caloriesTarget: 3400,
+          proteinTarget: 180,
+        };
+      }
 
-      return {
-        calories: pickValue(byType.calories_total),
-        protein: pickValue(byType.protein),
-        caloriesTarget: 3400,
-        proteinTarget: 180,
-      };
+      return null;
     },
   });
 }

@@ -64,7 +64,6 @@ export default function Dashboard() {
           icon={<Scale className="h-4 w-4" />}
           source="body_metrics"
           bodyField="weight_kg"
-          date={selectedDateStr}
         />
       </div>
 
@@ -76,7 +75,6 @@ export default function Dashboard() {
           unit=""
           color="hsl(152, 60%, 48%)"
           icon={<Footprints className="h-4 w-4" />}
-          date={selectedDateStr}
         />
         <WorkoutTodayCard date={selectedDateStr} />
         <KpiCard
@@ -85,7 +83,6 @@ export default function Dashboard() {
           unit="g"
           color="hsl(172, 66%, 50%)"
           icon={<Activity className="h-4 w-4" />}
-          date={selectedDateStr}
         />
       </div>
 
@@ -118,7 +115,6 @@ export default function Dashboard() {
           source="body_metrics"
           bodyField="body_fat_pc"
           invertDelta
-          date={selectedDateStr}
         />
       </div>
 
