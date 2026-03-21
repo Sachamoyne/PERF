@@ -397,15 +397,7 @@ function LogbookView({ sessionId, onClose }: { sessionId: string; onClose: () =>
   const [drafts, setDrafts] = useState<Record<string, ExerciseDraft>>({});
 
   const session = workoutSessions.find((s) => s.id === sessionId) ?? null;
-  if (!session) {
-    return (
-      <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
-        Chargement du logbook...
-      </div>
-    );
-  }
-
-  const sets = (session.workout_sets ?? []) as WorkoutSetRow[];
+  const sets = (session?.workout_sets ?? []) as WorkoutSetRow[];
 
   const groupedExercises = useMemo(() => {
     const map = new Map<string, WorkoutSetRow[]>();
@@ -423,6 +415,14 @@ function LogbookView({ sessionId, onClose }: { sessionId: string; onClose: () =>
       sets: (map.get(name) ?? []).slice().sort((a, b) => a.set_number - b.set_number),
     }));
   }, [sets, localExercises]);
+
+  if (!session) {
+    return (
+      <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+        Chargement du logbook...
+      </div>
+    );
+  }
 
   const openDraft = (exerciseName: string) => {
     setDrafts((prev) => ({
