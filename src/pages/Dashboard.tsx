@@ -75,7 +75,6 @@ export default function Dashboard() {
           unit=""
           color="hsl(152, 60%, 48%)"
           icon={<Footprints className="h-4 w-4" />}
-          aggMode="sum"
         />
         <WorkoutTodayCard date={selectedDateStr} />
         <KpiCard
