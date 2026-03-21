@@ -288,6 +288,7 @@ export type Database = {
       }
       workout_sessions: {
         Row: {
+          activity_id: string | null
           created_at: string
           date: string
           id: string
@@ -296,6 +297,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          activity_id?: string | null
           created_at?: string
           date: string
           id?: string
@@ -304,6 +306,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          activity_id?: string | null
           created_at?: string
           date?: string
           id?: string
@@ -311,7 +314,15 @@ export type Database = {
           notes?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workout_sessions_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workout_sets: {
         Row: {

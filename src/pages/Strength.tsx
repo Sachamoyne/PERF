@@ -2,36 +2,38 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
+  ArrowLeft,
+  Check,
   Dumbbell,
-  Scale,
-  TrendingUp,
-  TrendingDown,
   Minus,
   Plus,
+  Scale,
   Trash2,
-  Check,
-  ArrowLeft,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { toast } from "sonner";
+import { useActivities } from "@/hooks/useHealthData";
 import { useLatestBodyMetric, useBodyMetrics } from "@/hooks/useBodyMetrics";
 import {
   useWorkoutSessions,
-  useCreateWorkoutSession,
-  useDeleteWorkoutSession,
   useAddWorkoutSet,
   useDeleteWorkoutSet,
+  useGetOrCreateSessionForActivity,
   useLastPerformance,
-  type WorkoutSessionRow,
   type WorkoutSetRow,
 } from "@/hooks/useWorkoutSessions";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 
 type ExerciseDraft = { reps: string; weight: string; open: boolean };
+
+type LastPerfRow = WorkoutSetRow & {
+  workout_sessions?: { date?: string } | { date?: string }[] | null;
+};
 
 const FREQUENT_EXERCISES = [
   "Squat",
@@ -55,29 +57,17 @@ const PROGRESSION_EXERCISES = [
   "Leg press",
 ] as const;
 
-function todayLocal() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
 export default function Strength() {
+  const { data: sessions = [] } = useActivities("strength");
   const { data: latestMetrics = [] } = useLatestBodyMetric();
   const { data: bodyHistory = [] } = useBodyMetrics(30);
   const { data: workoutSessions = [] } = useWorkoutSessions();
 
-  const createSession = useCreateWorkoutSession();
-  const deleteSession = useDeleteWorkoutSession();
   const addSet = useAddWorkoutSet();
   const deleteSet = useDeleteWorkoutSet();
-
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createDate, setCreateDate] = useState(todayLocal());
-  const [createNotes, setCreateNotes] = useState("");
+  const getOrCreateSessionForActivity = useGetOrCreateSessionForActivity();
 
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [historyExpandedId, setHistoryExpandedId] = useState<string | null>(null);
-
   const [exerciseDrawerOpen, setExerciseDrawerOpen] = useState(false);
   const [customExercise, setCustomExercise] = useState("");
   const [localExercises, setLocalExercises] = useState<string[]>([]);
@@ -109,6 +99,16 @@ export default function Strength() {
     [workoutSessions, activeSessionId]
   );
 
+  const activityById = useMemo(() => {
+    const map = new Map<string, (typeof sessions)[number]>();
+    for (const activity of sessions) map.set(activity.id, activity);
+    return map;
+  }, [sessions]);
+
+  const activeActivity = activeSession?.activity_id
+    ? activityById.get(activeSession.activity_id) ?? null
+    : null;
+
   const activeSets = (activeSession?.workout_sets ?? []) as WorkoutSetRow[];
 
   const groupedExercises = useMemo(() => {
@@ -129,7 +129,15 @@ export default function Strength() {
     }));
   }, [activeSets, localExercises]);
 
-  const historySessions = workoutSessions.slice(0, 10);
+  const historyActivities = sessions.slice(0, 10);
+
+  const sessionByActivityId = useMemo(() => {
+    const map = new Map<string, (typeof workoutSessions)[number]>();
+    for (const s of workoutSessions) {
+      if (s.activity_id) map.set(s.activity_id, s);
+    }
+    return map;
+  }, [workoutSessions]);
 
   const progressionCards = useMemo(() => {
     return PROGRESSION_EXERCISES.map((exerciseName) => {
@@ -161,10 +169,6 @@ export default function Strength() {
   const openDraft = (exerciseName: string) => {
     setDrafts((prev) => ({
       ...prev,
-      [exerciseName]: prev[exerciseName] ?? { reps: "8", weight: "", open: true },
-    }));
-    setDrafts((prev) => ({
-      ...prev,
       [exerciseName]: { ...(prev[exerciseName] ?? { reps: "8", weight: "" }), open: true },
     }));
   };
@@ -188,30 +192,23 @@ export default function Strength() {
     }));
   };
 
-  const handleCreateSession = () => {
-    createSession.mutate(
-      { date: createDate, name: createName, notes: createNotes },
-      {
-        onSuccess: (id) => {
-          toast.success("Séance créée");
-          setCreateOpen(false);
-          setCreateName("");
-          setCreateNotes("");
-          setActiveSessionId(id);
-          setLocalExercises([]);
-          setDrafts({});
-        },
-        onError: (e) => toast.error((e as Error).message || "Impossible de créer la séance"),
-      }
-    );
-  };
-
   const handleAddExercise = (exerciseNameRaw: string) => {
     const exerciseName = exerciseNameRaw.trim();
     if (!exerciseName) return;
     setLocalExercises((prev) => (prev.includes(exerciseName) ? prev : [...prev, exerciseName]));
     setExerciseDrawerOpen(false);
     setCustomExercise("");
+  };
+
+  const handleOpenLogbook = (activityId: string) => {
+    getOrCreateSessionForActivity.mutate(activityId, {
+      onSuccess: (sessionId) => {
+        setActiveSessionId(sessionId);
+        setLocalExercises([]);
+        setDrafts({});
+      },
+      onError: (e) => toast.error((e as Error).message || "Impossible d'ouvrir la séance"),
+    });
   };
 
   const handleAddSet = (exerciseName: string, existingCount: number) => {
@@ -257,17 +254,6 @@ export default function Strength() {
     });
   };
 
-  const handleDeleteSession = (sessionId: string) => {
-    deleteSession.mutate(sessionId, {
-      onSuccess: () => {
-        toast.success("Séance supprimée");
-        if (activeSessionId === sessionId) setActiveSessionId(null);
-        if (historyExpandedId === sessionId) setHistoryExpandedId(null);
-      },
-      onError: (e) => toast.error((e as Error).message || "Impossible de supprimer la séance"),
-    });
-  };
-
   if (activeSession) {
     return (
       <div className="space-y-4">
@@ -284,8 +270,16 @@ export default function Strength() {
             Retour
           </button>
           <div className="text-right">
-            <p className="font-display font-semibold text-foreground">{activeSession.name || "Séance"}</p>
-            <p className="text-xs text-muted-foreground">{format(new Date(`${activeSession.date}T12:00:00`), "EEEE d MMMM yyyy", { locale: fr })}</p>
+            <p className="font-display font-semibold text-foreground">Séance Musculation</p>
+            <p className="text-xs text-muted-foreground">
+              {format(
+                new Date(`${(activeActivity?.start_time ?? `${activeSession.date}T12:00:00`)}`),
+                "EEEE d MMMM yyyy, HH:mm",
+                { locale: fr }
+              )}
+              {activeActivity ? ` · ${Math.round(activeActivity.duration_sec / 60)} min` : ""}
+              {activeActivity?.calories ? ` · ${activeActivity.calories} kcal` : ""}
+            </p>
           </div>
           <Button onClick={() => setActiveSessionId(null)} style={{ backgroundColor: "hsl(var(--strength))" }} className="text-white">
             Terminer
@@ -367,55 +361,6 @@ export default function Strength() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-display font-bold text-foreground">Musculation</h1>
-        <Drawer open={createOpen} onOpenChange={setCreateOpen}>
-          <DrawerTrigger asChild>
-            <Button style={{ backgroundColor: "hsl(var(--strength))" }} className="text-white">
-              <Plus className="h-4 w-4 mr-1" />
-              Nouvelle séance
-            </Button>
-          </DrawerTrigger>
-          <DrawerContent className="bg-card border-border">
-            <DrawerHeader>
-              <DrawerTitle>Nouvelle séance</DrawerTitle>
-            </DrawerHeader>
-            <div className="px-4 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Nom de la séance (optionnel)</Label>
-                <Input
-                  value={createName}
-                  onChange={(e) => setCreateName(e.target.value)}
-                  placeholder="Push / Pull / Legs"
-                  className="bg-secondary border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Date</Label>
-                <Input
-                  type="date"
-                  value={createDate}
-                  onChange={(e) => setCreateDate(e.target.value)}
-                  className="bg-secondary border-border"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-muted-foreground">Notes (optionnel)</Label>
-                <Textarea
-                  value={createNotes}
-                  onChange={(e) => setCreateNotes(e.target.value)}
-                  className="bg-secondary border-border min-h-[90px]"
-                />
-              </div>
-            </div>
-            <DrawerFooter>
-              <Button onClick={handleCreateSession} disabled={createSession.isPending} style={{ backgroundColor: "hsl(var(--strength))" }} className="text-white">
-                {createSession.isPending ? "Création..." : "Créer la séance"}
-              </Button>
-              <DrawerClose asChild>
-                <Button variant="ghost">Annuler</Button>
-              </DrawerClose>
-            </DrawerFooter>
-          </DrawerContent>
-        </Drawer>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -453,12 +398,7 @@ export default function Strength() {
                 tickLine={false}
                 tickFormatter={(v) => format(new Date(`${v}T12:00:00`), "dd/MM", { locale: fr })}
               />
-              <YAxis
-                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                axisLine={false}
-                tickLine={false}
-                domain={["dataMin - 1", "dataMax + 1"]}
-              />
+              <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} axisLine={false} tickLine={false} domain={["dataMin - 1", "dataMax + 1"]} />
               <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
               <Line type="monotone" dataKey="Poids" stroke="hsl(var(--strength))" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Muscle" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
@@ -470,92 +410,44 @@ export default function Strength() {
       <div>
         <h2 className="text-lg font-display font-semibold text-foreground mb-3">Historique des séances</h2>
         <div className="space-y-2">
-          {historySessions.map((session) => {
-            const sets = (session.workout_sets ?? []) as WorkoutSetRow[];
+          {historyActivities.map((activity) => {
+            const linked = sessionByActivityId.get(activity.id);
+            const sets = (linked?.workout_sets ?? []) as WorkoutSetRow[];
             const exerciseCount = new Set(sets.map((s) => s.exercise_name)).size;
             const setCount = sets.length;
             const totalKg = Math.round(sets.reduce((sum, s) => sum + (s.reps * s.weight_kg), 0));
-            const isOpen = historyExpandedId === session.id;
-
-            const grouped = sets.reduce<Record<string, WorkoutSetRow[]>>((acc, s) => {
-              if (!acc[s.exercise_name]) acc[s.exercise_name] = [];
-              acc[s.exercise_name].push(s);
-              return acc;
-            }, {});
 
             return (
-              <div key={session.id} className="rounded-xl border border-border bg-card p-4">
+              <div key={activity.id} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-foreground">
-                      {format(new Date(`${session.date}T12:00:00`), "EEEE d MMMM yyyy", { locale: fr })}
-                      {session.name ? ` · ${session.name}` : ""}
+                      {format(new Date(activity.start_time), "EEEE d MMMM yyyy, HH:mm", { locale: fr })}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {exerciseCount} exercices · {setCount} séries · {totalKg.toLocaleString()} kg total
+                      {Math.round(activity.duration_sec / 60)} min · {activity.calories ?? "—"} kcal
+                    </p>
+                    <p className={`text-xs mt-1 ${linked ? "text-primary" : "text-muted-foreground"}`}>
+                      {linked
+                        ? `${exerciseCount} exercices · ${setCount} séries · ${totalKg.toLocaleString()} kg total`
+                        : "Aucun exercice enregistré"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setHistoryExpandedId(isOpen ? null : session.id)}
-                    >
-                      {isOpen ? "Masquer" : "Voir détail"}
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => handleDeleteSession(session.id)}
-                      disabled={deleteSession.isPending}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    style={{ backgroundColor: "hsl(var(--strength))" }}
+                    className="text-white"
+                    onClick={() => handleOpenLogbook(activity.id)}
+                    disabled={getOrCreateSessionForActivity.isPending}
+                  >
+                    {linked ? "Modifier" : "Ajouter exercices"}
+                  </Button>
                 </div>
-
-                {isOpen && (
-                  <div className="mt-3 pt-3 border-t border-border space-y-2">
-                    {Object.entries(grouped).map(([exerciseName, exSets]) => (
-                      <div key={exerciseName} className="rounded-lg bg-secondary/30 p-3">
-                        <p className="text-sm font-medium text-foreground mb-2">{exerciseName}</p>
-                        <div className="grid grid-cols-[auto_1fr_1fr] gap-2 text-xs text-muted-foreground">
-                          <span>Set</span>
-                          <span>Reps</span>
-                          <span>Kg</span>
-                        </div>
-                        {exSets
-                          .slice()
-                          .sort((a, b) => a.set_number - b.set_number)
-                          .map((set) => (
-                            <div key={set.id} className="grid grid-cols-[auto_1fr_1fr] gap-2 text-sm text-foreground py-0.5">
-                              <span>{set.set_number}</span>
-                              <span>{set.reps}</span>
-                              <span>{set.weight_kg}</span>
-                            </div>
-                          ))}
-                      </div>
-                    ))}
-                    <Button
-                      size="sm"
-                      style={{ backgroundColor: "hsl(var(--strength))" }}
-                      className="text-white"
-                      onClick={() => {
-                        setActiveSessionId(session.id);
-                        setLocalExercises([]);
-                        setDrafts({});
-                      }}
-                    >
-                      Continuer cette séance
-                    </Button>
-                  </div>
-                )}
               </div>
             );
           })}
 
-          {historySessions.length === 0 && (
+          {historyActivities.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">Aucune séance enregistrée</p>
           )}
         </div>
@@ -577,11 +469,7 @@ export default function Strength() {
                     <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} width={30} />
                     <Tooltip
-                      contentStyle={{
-                        backgroundColor: "hsl(var(--card))",
-                        border: "1px solid hsl(var(--border))",
-                        borderRadius: "8px",
-                      }}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
                       formatter={(v: number) => [`${v} kg`, "Charge max"]}
                     />
                     <Line type="monotone" dataKey="weight" stroke="hsl(var(--strength))" strokeWidth={2} dot={false} isAnimationActive={false} />
@@ -619,19 +507,21 @@ function ExerciseLogbookBlock({
   onAddSet: () => void;
   onDeleteSet: (setId: string) => void;
 }) {
-  const { data: lastPerf = [] } = useLastPerformance(exerciseName);
+  const { data: lastPerfRaw = [] } = useLastPerformance(exerciseName);
+  const lastPerf = lastPerfRaw as LastPerfRow[];
 
-  const previousSets = (lastPerf as any[]).filter((s) => s.session_id !== sessionId);
-  const lastSessionDate = (previousSets[0]?.workout_sessions as any)?.date
-    || (Array.isArray(previousSets[0]?.workout_sessions) ? previousSets[0].workout_sessions[0]?.date : undefined);
+  const previousSets = lastPerf.filter((s) => s.session_id !== sessionId);
+  const extractDate = (row: LastPerfRow) => {
+    if (!row.workout_sessions) return undefined;
+    if (Array.isArray(row.workout_sessions)) return row.workout_sessions[0]?.date;
+    return row.workout_sessions.date;
+  };
+
+  const lastSessionDate = previousSets.length > 0 ? extractDate(previousSets[0]) : undefined;
 
   const lastSummary = useMemo(() => {
     if (!lastSessionDate) return "—";
-    const sameDay = previousSets.filter((s) => {
-      const d = (s.workout_sessions as any)?.date
-        || (Array.isArray(s.workout_sessions) ? s.workout_sessions[0]?.date : undefined);
-      return d === lastSessionDate;
-    });
+    const sameDay = previousSets.filter((s) => extractDate(s) === lastSessionDate);
     if (sameDay.length === 0) return "—";
     const setCount = sameDay.length;
     const repsRef = sameDay[0]?.reps ?? 0;
@@ -662,41 +552,24 @@ function ExerciseLogbookBlock({
             <span className="text-foreground">{set.set_number}</span>
             <span className="text-foreground">{set.reps}</span>
             <span className="text-foreground">{set.weight_kg}</span>
-            <button
-              onClick={() => onDeleteSet(set.id)}
-              className="text-destructive hover:text-destructive/80"
-              title="Supprimer la série"
-            >
+            <button onClick={() => onDeleteSet(set.id)} className="text-destructive hover:text-destructive/80" title="Supprimer la série">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
         ))
       )}
 
-      <div className="mt-2 text-xs text-muted-foreground bg-secondary/40 rounded-md px-2 py-1">
-        Dernière fois : {lastSummary}
-      </div>
+      <div className="mt-2 text-xs text-muted-foreground bg-secondary/40 rounded-md px-2 py-1">Dernière fois : {lastSummary}</div>
 
       {draft?.open ? (
         <div className="mt-3 flex items-end gap-2">
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Reps</Label>
-            <Input
-              type="number"
-              value={draft.reps}
-              onChange={(e) => onDraftChange("reps", e.target.value)}
-              className="bg-secondary border-border h-8 w-20"
-            />
+            <Input type="number" value={draft.reps} onChange={(e) => onDraftChange("reps", e.target.value)} className="bg-secondary border-border h-8 w-20" />
           </div>
           <div className="space-y-1">
             <Label className="text-[11px] text-muted-foreground">Kg</Label>
-            <Input
-              type="number"
-              step="0.5"
-              value={draft.weight}
-              onChange={(e) => onDraftChange("weight", e.target.value)}
-              className="bg-secondary border-border h-8 w-24"
-            />
+            <Input type="number" step="0.5" value={draft.weight} onChange={(e) => onDraftChange("weight", e.target.value)} className="bg-secondary border-border h-8 w-24" />
           </div>
           <Button size="icon" className="h-8 w-8" style={{ backgroundColor: "hsl(var(--strength))" }} onClick={onAddSet}>
             <Check className="h-4 w-4 text-white" />

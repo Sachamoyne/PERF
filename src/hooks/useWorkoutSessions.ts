@@ -5,6 +5,7 @@ import { useAuth } from "./useAuth";
 
 export type WorkoutSetRow = Tables<"workout_sets">;
 export type WorkoutSessionRow = Tables<"workout_sessions"> & {
+  activity_id?: string | null;
   workout_sets?: WorkoutSetRow[];
 };
 
@@ -18,7 +19,7 @@ export function useWorkoutSessions() {
       if (!user) return [] as WorkoutSessionRow[];
       const { data, error } = await supabase
         .from("workout_sessions")
-        .select("*, workout_sets(*)")
+        .select("id,user_id,date,name,notes,created_at,activity_id, workout_sets(*)")
         .eq("user_id", user.id)
         .order("date", { ascending: false });
       if (error) throw error;
@@ -129,6 +130,54 @@ export function useDeleteWorkoutSet() {
         .eq("id", setId)
         .eq("user_id", user.id);
       if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["workout_sessions"] });
+    },
+  });
+}
+
+export function useGetOrCreateSessionForActivity() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (activityId: string) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: existing, error: existingError } = await supabase
+        .from("workout_sessions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("activity_id", activityId)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+      if (existing?.id) return existing.id;
+
+      const { data: activity, error: activityError } = await supabase
+        .from("activities")
+        .select("start_time")
+        .eq("id", activityId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (activityError) throw activityError;
+      if (!activity) throw new Error("Activité introuvable");
+
+      const date = activity.start_time.split("T")[0];
+      const payload: TablesInsert<"workout_sessions"> = {
+        user_id: user.id,
+        activity_id: activityId,
+        date,
+      };
+
+      const { data: created, error: createError } = await supabase
+        .from("workout_sessions")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (createError) throw createError;
+      return created.id;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["workout_sessions"] });
