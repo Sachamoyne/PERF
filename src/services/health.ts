@@ -61,6 +61,7 @@ export interface WorkoutData {
   durationSec: number;
   calories?: number;
   distanceMeters?: number;
+  elevationGain?: number; // dénivelé positif en mètres
   source?: string;
 }
 
@@ -538,6 +539,9 @@ async function fetchNativeWorkouts(days: number): Promise<WorkoutData[]> {
         durationSec: Math.round(w.duration),
         calories: w.totalEnergyBurned,
         distanceMeters: w.totalDistance,
+        elevationGain: typeof (w as any).totalElevation === "number" && (w as any).totalElevation > 0
+          ? Math.round((w as any).totalElevation)
+          : undefined,
         source: w.sourceName,
       });
     }

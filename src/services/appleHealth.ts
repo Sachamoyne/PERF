@@ -480,6 +480,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
         duration_sec: w.durationSec,
         calories:     w.calories ? Math.round(w.calories) : null,
         distance_meters: w.distanceMeters ? Math.round(w.distanceMeters) : null,
+        total_elevation_gain: w.elevationGain ?? null,
       }));
 
       const { error } = await supabase.from("activities").insert(rows);

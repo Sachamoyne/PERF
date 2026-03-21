@@ -11,7 +11,7 @@ import {
   eachDayOfInterval, eachMonthOfInterval,
 } from "date-fns";
 import { fr } from "date-fns/locale";
-import { MapPin, Mountain, Wind, TrendingUp, TrendingDown, Clock, Heart, ArrowUp, Footprints, ChevronRight } from "lucide-react";
+import { MapPin, Mountain, Wind, TrendingUp, TrendingDown, Clock, ArrowUp, Footprints, ChevronRight } from "lucide-react";
 import { computePace } from "@/lib/garmin-utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -355,7 +355,6 @@ export default function Running() {
             <DetailStat icon={<MapPin className="h-4 w-4 text-running" />} label="Distance" value={`${((selectedRun.distance_meters || 0) / 1000).toFixed(2)} km`} />
             <DetailStat icon={<Clock className="h-4 w-4 text-running" />} label="Durée" value={formatDuration(selectedRun.duration_sec)} />
             <DetailStat icon={<Footprints className="h-4 w-4 text-running" />} label="Allure moy." value={`${computePace(selectedRun.duration_sec, selectedRun.distance_meters || 0)} /km`} />
-            <DetailStat icon={<Heart className="h-4 w-4 text-rhr" />} label="FC Moyenne" value={selectedRun.avg_hr ? `${selectedRun.avg_hr} bpm` : "—"} />
             <DetailStat icon={<Mountain className="h-4 w-4 text-running" />} label="Dénivelé" value={`${(selectedRun.total_elevation_gain || 0).toFixed(0)} m`} />
             <DetailStat icon={<ArrowUp className="h-4 w-4 text-muted-foreground" />} label="Calories" value={selectedRun.calories ? `${selectedRun.calories} kcal` : "—"} />
           </div>
@@ -456,7 +455,6 @@ function YearMonthDetail({ monthLabel, runs, expandedRunId, onExpandRun, expande
             <DetailStat icon={<MapPin className="h-4 w-4 text-running" />} label="Distance" value={`${((expandedRun.distance_meters || 0) / 1000).toFixed(2)} km`} />
             <DetailStat icon={<Clock className="h-4 w-4 text-running" />} label="Durée" value={formatDuration(expandedRun.duration_sec)} />
             <DetailStat icon={<Footprints className="h-4 w-4 text-running" />} label="Allure moy." value={`${computePace(expandedRun.duration_sec, expandedRun.distance_meters || 0)} /km`} />
-            <DetailStat icon={<Heart className="h-4 w-4 text-rhr" />} label="FC Moyenne" value={expandedRun.avg_hr ? `${expandedRun.avg_hr} bpm` : "—"} />
             <DetailStat icon={<Mountain className="h-4 w-4 text-running" />} label="Dénivelé" value={`${(expandedRun.total_elevation_gain || 0).toFixed(0)} m`} />
             <DetailStat icon={<ArrowUp className="h-4 w-4 text-muted-foreground" />} label="Calories" value={expandedRun.calories ? `${expandedRun.calories} kcal` : "—"} />
           </div>
