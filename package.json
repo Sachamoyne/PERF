@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "postinstall": "node scripts/patch-health-plugin.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

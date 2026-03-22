@@ -33,6 +33,8 @@ export interface AppleHealthSyncResult {
   importedSteps: number;
   importedCalories: number;
   importedProtein: number;
+  importedCarbs: number;
+  importedFat: number;
   fetched: {
     hrv: number;
     restingHR: number;
@@ -44,6 +46,8 @@ export interface AppleHealthSyncResult {
     steps: number;
     caloriesTotal: number;
     protein: number;
+    carbohydrates: number;
+    fat: number;
   };
   verified: {
     health_metrics: { hrv: number; rhr: number; sleep_score: number };
@@ -129,6 +133,8 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
       importedSteps: 0,
       importedCalories: 0,
       importedProtein: 0,
+      importedCarbs: 0,
+      importedFat: 0,
       fetched: {
         hrv: 0,
         restingHR: 0,
@@ -140,6 +146,8 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
         steps: 0,
         caloriesTotal: 0,
         protein: 0,
+        carbohydrates: 0,
+        fat: 0,
       },
       verified: {
         health_metrics: { hrv: 0, rhr: 0, sleep_score: 0 },
@@ -263,6 +271,8 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     steps:         snapshot.steps.length,
     caloriesTotal: snapshot.caloriesTotal.length,
     protein:       snapshot.protein.length,
+    carbohydrates: snapshot.carbohydrates.length,
+    fat:           snapshot.fat.length,
   });
 
   // ── Étape 3 : Préparation ────────────────────────────────────────────────
@@ -286,6 +296,8 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   let importedSteps      = 0;
   let importedCalories   = 0;
   let importedProtein    = 0;
+  let importedCarbs      = 0;
+  let importedFat        = 0;
 
   // ── Étape 4a : HRV → health_metrics ─────────────────────────────────────
   if (hrvByDay.length > 0) {
@@ -387,6 +399,44 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     if (error) console.error("[appleHealth] protein upsert error:", error);
     else importedProtein = rows.length;
     console.log("[appleHealth] ✓ Protéines :", importedProtein);
+  }
+
+  // ── Étape 4g : Glucides → health_metrics ─────────────────────────────────
+  // NOTE SQL requis côté Supabase:
+  // ALTER TYPE metric_type ADD VALUE IF NOT EXISTS 'carbs';
+  if (snapshot.carbohydrates.length > 0) {
+    const rows: TablesInsert<"health_metrics">[] = snapshot.carbohydrates.map((s) => ({
+      user_id:     userId,
+      date:        s.date,
+      metric_type: "carbs" as any,
+      value:       s.value,
+      unit:        "g",
+    }));
+    const { error } = await supabase
+      .from("health_metrics")
+      .upsert(rows, { onConflict: "user_id,metric_type,date" });
+    if (error) console.error("[appleHealth] carbs upsert error:", error);
+    else importedCarbs = rows.length;
+    console.log("[appleHealth] ✓ Glucides :", importedCarbs);
+  }
+
+  // ── Étape 4h : Lipides → health_metrics ──────────────────────────────────
+  // NOTE SQL requis côté Supabase:
+  // ALTER TYPE metric_type ADD VALUE IF NOT EXISTS 'fat';
+  if (snapshot.fat.length > 0) {
+    const rows: TablesInsert<"health_metrics">[] = snapshot.fat.map((s) => ({
+      user_id:     userId,
+      date:        s.date,
+      metric_type: "fat" as any,
+      value:       s.value,
+      unit:        "g",
+    }));
+    const { error } = await supabase
+      .from("health_metrics")
+      .upsert(rows, { onConflict: "user_id,metric_type,date" });
+    if (error) console.error("[appleHealth] fat upsert error:", error);
+    else importedFat = rows.length;
+    console.log("[appleHealth] ✓ Lipides :", importedFat);
   }
 
   // ── Étape 4i : Poids + Masse grasse → body_metrics ───────────────────────
@@ -566,12 +616,12 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   const importedSamples =
     importedHrv + importedRhr + importedSleepScore +
     importedWeight + importedBodyFat + importedWorkouts +
-    importedSleep + importedSteps + importedCalories + importedProtein;
+    importedSleep + importedSteps + importedCalories + importedProtein + importedCarbs + importedFat;
 
   console.info("[appleHealth] Sync completed", {
     importedHrv, importedRhr, importedSleepScore,
     importedWeight, importedBodyFat, importedWorkouts,
-    importedSleep, importedSteps, importedCalories, importedProtein,
+    importedSleep, importedSteps, importedCalories, importedProtein, importedCarbs, importedFat,
     lastSync,
   });
 
@@ -581,7 +631,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     importedSamples,
     importedHrv, importedRhr, importedSleepScore,
     importedWeight, importedBodyFat, importedWorkouts,
-    importedSleep, importedSteps, importedCalories, importedProtein,
+    importedSleep, importedSteps, importedCalories, importedProtein, importedCarbs, importedFat,
     fetched: {
       hrv:           snapshot.hrv.length,
       restingHR:     snapshot.restingHR.length,
@@ -593,6 +643,8 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
       steps:         snapshot.steps.length,
       caloriesTotal: snapshot.caloriesTotal.length,
       protein:       snapshot.protein.length,
+      carbohydrates: snapshot.carbohydrates.length,
+      fat:           snapshot.fat.length,
     },
     verified,
     diagnosticReport,

@@ -17,7 +17,6 @@
 
 import { Health } from "@capgo/capacitor-health";
 import type { Workout } from "@capgo/capacitor-health/dist/esm/definitions";
-import { NutritionPlugin } from "@/plugins/nutritionPlugin";
 
 export function toLocalDateStr(isoString: string): string {
   const d = new Date(isoString);
@@ -76,6 +75,8 @@ export interface HealthSnapshot {
   steps:         HealthSample[];   // total pas par jour (count)
   caloriesTotal: HealthSample[];   // calories totales journalières (kcal)
   protein:       HealthSample[];   // protéines journalières (g)
+  carbohydrates: HealthSample[];   // glucides journaliers (g)
+  fat:           HealthSample[];   // lipides journaliers (g)
 }
 
 export interface HealthPermissionResult {
@@ -453,21 +454,91 @@ async function fetchDailyCalories(days: number): Promise<HealthSample[]> {
 }
 
 async function fetchDietaryProtein(days: number): Promise<HealthSample[]> {
-  if (getPlatform() !== "ios") return [];
   try {
-    await NutritionPlugin.requestAuthorization();
-    const result = await NutritionPlugin.queryDietaryProtein({ days });
-    const samples = (result.samples ?? [])
-      .map((s) => ({
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}T00:00:00.000Z`;
+    const endStr = new Date().toISOString();
+
+    const result = await Health.readSamples({
+      startDate: startStr,
+      endDate: endStr,
+      dataType: "dietaryProtein" as any,
+      ascending: true,
+    });
+
+    const samples: HealthSample[] = (result.samples ?? [])
+      .map((s: any) => ({
         date: toLocalDateStr(s.startDate),
-        value: Number(s.value),
-        unit: "g" as string,
+        value: typeof s.value === "number" ? Math.round(s.value * 10) / 10 : 0,
+        unit: "g",
       }))
-      .filter((s) => Number.isFinite(s.value) && s.value > 0);
-    console.log("[health] fetchDietaryProtein:", samples.length, "samples");
-    return groupByDaySum(samples);
+      .filter((s: HealthSample) => s.value > 0);
+
+    console.log("[health] fetchDietaryProtein via Health plugin:", samples.length, "samples");
+    return samples;
   } catch (err) {
-    console.error("[health] fetchDietaryProtein error:", err);
+    console.warn("[health] fetchDietaryProtein fallback échec:", err);
+    return [];
+  }
+}
+
+async function fetchDietaryCarbohydrates(days: number): Promise<HealthSample[]> {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}T00:00:00.000Z`;
+    const endStr = new Date().toISOString();
+
+    const result = await Health.readSamples({
+      startDate: startStr,
+      endDate: endStr,
+      dataType: "dietaryCarbohydrates" as any,
+      ascending: true,
+    });
+
+    const samples: HealthSample[] = (result.samples ?? [])
+      .map((s: any) => ({
+        date: toLocalDateStr(s.startDate),
+        value: typeof s.value === "number" ? Math.round(s.value * 10) / 10 : 0,
+        unit: "g",
+      }))
+      .filter((s: HealthSample) => s.value > 0);
+
+    console.log("[health] fetchDietaryCarbohydrates:", samples.length, "samples");
+    return samples;
+  } catch (err) {
+    console.warn("[health] fetchDietaryCarbohydrates error:", err);
+    return [];
+  }
+}
+
+async function fetchDietaryFat(days: number): Promise<HealthSample[]> {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}T00:00:00.000Z`;
+    const endStr = new Date().toISOString();
+
+    const result = await Health.readSamples({
+      startDate: startStr,
+      endDate: endStr,
+      dataType: "dietaryFat" as any,
+      ascending: true,
+    });
+
+    const samples: HealthSample[] = (result.samples ?? [])
+      .map((s: any) => ({
+        date: toLocalDateStr(s.startDate),
+        value: typeof s.value === "number" ? Math.round(s.value * 10) / 10 : 0,
+        unit: "g",
+      }))
+      .filter((s: HealthSample) => s.value > 0);
+
+    console.log("[health] fetchDietaryFat:", samples.length, "samples");
+    return samples;
+  } catch (err) {
+    console.warn("[health] fetchDietaryFat error:", err);
     return [];
   }
 }
@@ -562,7 +633,7 @@ async function fetchNativeWorkouts(days: number): Promise<WorkoutData[]> {
 async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
   console.group("[health] ── ÉTAPE 2 : Fetch données natives ──");
 
-  const [hrv, weight, restingHR, bodyFat, sleep, workouts, steps, caloriesTotal, protein] =
+  const [hrv, weight, restingHR, bodyFat, sleep, workouts, steps, caloriesTotal, protein, carbs, fat] =
     await Promise.allSettled([
       fetchSamples("heartRateVariability", days),
       fetchSamples("weight", days),
@@ -573,6 +644,8 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
       fetchDailySteps(days),                 // queryAggregated bucket day sum
       fetchDailyCalories(days),              // queryAggregated bucket day sum
       fetchDietaryProtein(days),
+      fetchDietaryCarbohydrates(days),
+      fetchDietaryFat(days),
     ]);
 
   const sleepVal = sleep.status === "fulfilled" ? sleep.value : [];
@@ -588,6 +661,8 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
     steps:         steps.status         === "fulfilled" ? steps.value         : [],
     caloriesTotal: caloriesTotal.status === "fulfilled" ? caloriesTotal.value : [],
     protein:       protein.status       === "fulfilled" ? protein.value       : [],
+    carbohydrates: carbs.status         === "fulfilled" ? carbs.value         : [],
+    fat:           fat.status           === "fulfilled" ? fat.value           : [],
   };
 
   console.log("[health] ✓ Snapshot :", {
@@ -601,6 +676,8 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
     steps:         snapshot.steps.length,
     caloriesTotal: snapshot.caloriesTotal.length,
     protein:       snapshot.protein.length,
+    carbohydrates: snapshot.carbohydrates.length,
+    fat:           snapshot.fat.length,
   });
   console.groupEnd();
   return snapshot;
@@ -648,6 +725,8 @@ function generateDemoData(days: number): HealthSnapshot {
     steps:         dailySamples(() => Math.round(6000 + Math.random() * 9000), "count"),
     caloriesTotal: dailySamples(() => Math.round(2800 + Math.random() * 800), "kcal"),
     protein:       dailySamples(() => Math.round(140 + Math.random() * 60), "g"),
+    carbohydrates: dailySamples(() => Math.round(180 + Math.random() * 90), "g"),
+    fat:           dailySamples(() => Math.round(55 + Math.random() * 35), "g"),
   };
 }
 
