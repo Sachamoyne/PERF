@@ -28,7 +28,7 @@ function formatMinutes(min: number): string {
   return h > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${m} min`;
 }
 
-export function WeeklySummary({ date }: { date?: string }) {
+export function WeeklySummary({ date, detailPath }: { date?: string; detailPath?: string }) {
   const targetDate = date ? new Date(date) : new Date();
   const dayOfWeek = targetDate.getDay();
   const monday = subDays(targetDate, dayOfWeek === 0 ? 6 : dayOfWeek - 1);
@@ -84,7 +84,16 @@ export function WeeklySummary({ date }: { date?: string }) {
     <div className="glass-card p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-display font-semibold text-sm text-foreground">
-          Ma semaine sportive
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            Ma semaine sportive
+          </button>
         </h3>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
           <Timer className="h-3.5 w-3.5" />

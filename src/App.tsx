@@ -7,12 +7,25 @@ import { useAuth } from "@/hooks/useAuth";
 import Dashboard from "./pages/Dashboard";
 
 import Running from "./pages/Running";
+import Cycling from "./pages/Cycling";
+import Swimming from "./pages/Swimming";
 import Racket from "./pages/Racket";
 import Strength from "./pages/Strength";
 import Journal from "./pages/Journal";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
+import {
+  CaloriesDetailPage,
+  WeightDetailPage,
+  BodyFatDetailPage,
+  ProteinDetailPage,
+  SleepDetailPage,
+  StepsDetailPage,
+  HrvDetailPage,
+  Vo2maxDetailPage,
+  TrainingDetailPage,
+} from "./pages/DashboardDetailPages";
 
 const queryClient = new QueryClient();
 
@@ -36,9 +49,20 @@ function ProtectedRoutes() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/running" element={<Running />} />
+        <Route path="/cycling" element={<Cycling />} />
+        <Route path="/swimming" element={<Swimming />} />
         <Route path="/racket" element={<Racket />} />
         <Route path="/strength" element={<Strength />} />
         <Route path="/journal" element={<Journal />} />
+        <Route path="/details/calories" element={<CaloriesDetailPage />} />
+        <Route path="/details/weight" element={<WeightDetailPage />} />
+        <Route path="/details/body-fat" element={<BodyFatDetailPage />} />
+        <Route path="/details/protein" element={<ProteinDetailPage />} />
+        <Route path="/details/sleep" element={<SleepDetailPage />} />
+        <Route path="/details/steps" element={<StepsDetailPage />} />
+        <Route path="/details/hrv" element={<HrvDetailPage />} />
+        <Route path="/details/vo2max" element={<Vo2maxDetailPage />} />
+        <Route path="/details/training" element={<TrainingDetailPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

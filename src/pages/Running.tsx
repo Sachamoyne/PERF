@@ -127,7 +127,7 @@ export default function Running() {
   );
 
   const totalDist = filteredRuns.reduce((s, r) => s + (r.distance_meters || 0), 0);
-  const totalElev = filteredRuns.reduce((s, r) => s + (r.total_elevation_gain || 0), 0);
+  const totalDurSec = filteredRuns.reduce((s, r) => s + r.duration_sec, 0);
 
   const vo2Value = vo2Data?.[0]?.value;
   const vo2Prev = vo2Data?.[1]?.value;
@@ -312,13 +312,13 @@ export default function Running() {
         </div>
         <div className="glass-card p-4 flex items-center gap-3">
           <div className="p-2 rounded-lg bg-running/15">
-            <Mountain className="h-5 w-5 text-running" />
+            <Clock className="h-5 w-5 text-running" />
           </div>
           <div>
             <p className="text-2xl font-display font-bold text-foreground">
-              {totalElev.toFixed(0)} <span className="text-sm font-normal text-muted-foreground">m D+</span>
+              {formatDuration(totalDurSec)}
             </p>
-            <p className="text-xs text-muted-foreground">Dénivelé total</p>
+            <p className="text-xs text-muted-foreground">Durée totale</p>
           </div>
         </div>
         <div className="glass-card p-4 flex items-center gap-3">

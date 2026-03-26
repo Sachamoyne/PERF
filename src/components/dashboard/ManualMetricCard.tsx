@@ -1,17 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area, AreaChart, Bar, BarChart,
   CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useUpsertHealthMetric } from "@/hooks/useUpsertHealthMetric";
 import { usePersistedChartPeriod } from "@/hooks/usePersistedChartPeriod";
+import { parseLocalDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Drawer, DrawerClose, DrawerContent,
@@ -29,6 +31,10 @@ const PERIODS = [
   { label: "3m",  days: 90  },
   { label: "1a",  days: 365 },
 ] as const;
+const PERIODS_WITH_ALL = [
+  ...PERIODS,
+  { label: "Tout", days: null },
+] as const;
 
 interface ManualMetricCardProps {
   metricType: ManualMetricType;
@@ -37,6 +43,7 @@ interface ManualMetricCardProps {
   color: string;
   icon: React.ReactNode;
   targetValue?: number;
+  detailPath?: string;
 }
 
 function toLocalDateStr(iso: string): string {
@@ -50,7 +57,8 @@ function todayLocal(): string {
 }
 
 function aggregateByMonth(
-  data: { value: number; date: string }[]
+  data: { value: number; date: string }[],
+  labelVariant: "month_short" | "month_year" | "month_year_short" = "month_short"
 ): { label: string; v: number; date: string }[] {
   const byMonth: Record<string, number[]> = {};
   for (const e of data) {
@@ -63,26 +71,33 @@ function aggregateByMonth(
     .map(([key, vals]) => {
       const v = Math.round((vals.reduce((s, x) => s + x, 0) / vals.length) * 10) / 10;
       const [y, m] = key.split("-");
-      const lbl = new Date(Number(y), Number(m)-1, 1)
-        .toLocaleDateString("fr-FR", { month: "short" });
+      const date = new Date(Number(y), Number(m)-1, 1);
+      const lbl = labelVariant === "month_year"
+        ? date.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })
+        : labelVariant === "month_year_short"
+          ? date.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })
+          : date.toLocaleDateString("fr-FR", { month: "short" });
       return { label: lbl, v, date: key + "-01" };
     });
 }
 
-function useMetricHistory(metricType: ManualMetricType, days: number) {
+function useMetricHistory(metricType: ManualMetricType, days: number | null) {
   return useQuery({
-    queryKey: ["kpi_metric", metricType, days],
+    queryKey: ["kpi_metric", metricType, days ?? "all"],
     staleTime: 0,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,"0")}-${String(since.getDate()).padStart(2,"0")}`;
-      const { data, error } = await supabase
+      let query = supabase
         .from("health_metrics")
         .select("value, date, unit")
         .eq("metric_type", metricType as MetricType)
-        .gte("date", sinceStr)
         .order("date", { ascending: true });
+      if (days != null) {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,"0")}-${String(since.getDate()).padStart(2,"0")}`;
+        query = query.gte("date", sinceStr);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
     },
@@ -90,15 +105,17 @@ function useMetricHistory(metricType: ManualMetricType, days: number) {
 }
 
 export function ManualMetricCard({
-  metricType, label, unit, color, icon, targetValue,
+  metricType, label, unit, color, icon, targetValue, detailPath,
 }: ManualMetricCardProps) {
-  const [periodIdx, setPeriodIdx] = usePersistedChartPeriod(metricType, PERIODS);
+  const navigate = useNavigate();
+  const [periodIdx, setPeriodIdx] = usePersistedChartPeriod(metricType, PERIODS_WITH_ALL);
   const [open, setOpen] = useState(false);
   const [dateValue, setDateValue] = useState(todayLocal);
   const [value, setValue] = useState("");
 
-  const period = PERIODS[periodIdx];
-  const isMonthly = period.days >= 90;
+  const period = PERIODS_WITH_ALL[periodIdx];
+  const isAllPeriod = period.days == null;
+  const isMonthly = !isAllPeriod && period.days >= 90;
 
   const { data: history = [] } = useMetricHistory(metricType, period.days);
   const upsertMetric = useUpsertHealthMetric();
@@ -149,10 +166,28 @@ export function ManualMetricCard({
   }));
 
   const monthlyData = aggregateByMonth(history);
-  const chartData = isMonthly ? monthlyData : dailyData;
+  const chartData = useMemo(() => {
+    if (!isAllPeriod) return isMonthly ? monthlyData : dailyData;
+    if (history.length === 0) return [];
+
+    const firstDate = parseLocalDate(history[0].date);
+    const lastDate = parseLocalDate(history[history.length - 1].date);
+    const spanDays = Math.max(1, Math.round((lastDate.getTime() - firstDate.getTime()) / 86_400_000));
+
+    if (spanDays < 90) {
+      return history.map((e) => ({
+        v: e.value,
+        date: e.date,
+        label: format(new Date(e.date + "T12:00:00"), "d MMM", { locale: fr }),
+      }));
+    }
+
+    const monthLabelVariant = spanDays < 365 ? "month_year" : "month_year_short";
+    return aggregateByMonth(history, monthLabelVariant);
+  }, [isAllPeriod, isMonthly, monthlyData, dailyData, history]);
 
   // Bornes Y adaptatives
-  const vals = chartData.map(d => d.v);
+  const vals = chartData.map((d) => d.v).filter((v): v is number => typeof v === "number");
   const minV = vals.length > 0 ? Math.min(...vals) : 0;
   const maxV = vals.length > 0 ? Math.max(...vals, targetValue ?? 0) : (targetValue ?? 10);
   const pad = Math.max((maxV - minV) * 0.15, 1);
@@ -170,6 +205,12 @@ export function ManualMetricCard({
   };
   const axisStyle = { fontSize: 9, fill: "hsl(var(--muted-foreground))" };
   const gradientId = `grad-manual-${metricType}`;
+  const pointDot = useMemo(() => {
+    if (chartData.length > 80) return false;
+    if (isAllPeriod) return { fill: color, r: chartData.length <= 24 ? 4 : 2, strokeWidth: 0 };
+    return history.length <= 30 ? { fill: color, r: history.length <= 7 ? 3 : 2, strokeWidth: 0 } : false;
+  }, [chartData.length, isAllPeriod, history.length, color]);
+  const activePointDot = useMemo(() => ({ r: isAllPeriod ? 6 : 4, fill: color, strokeWidth: 0 }), [isAllPeriod, color]);
 
   return (
     <div className="glass-card p-3 flex flex-col gap-2" style={{ minHeight: "220px" }}>
@@ -177,15 +218,18 @@ export function ManualMetricCard({
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 text-muted-foreground text-xs min-w-0">
           <span className="shrink-0">{icon}</span>
-          <span className="truncate">{label}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`truncate transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            {label}
+          </button>
         </div>
         <div className="flex items-center gap-2">
-          {delta !== null && delta !== 0 && (
-            <div className={`flex items-center gap-0.5 text-[10px] font-medium ${delta > 0 ? "text-primary" : "text-destructive"}`}>
-              {delta > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-              {deltaLabel}
-            </div>
-          )}
           <Drawer open={open} onOpenChange={setOpen}>
             <DrawerTrigger asChild>
               <button className="h-5 w-5 flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors">
@@ -281,8 +325,9 @@ export function ManualMetricCard({
                 stroke={color}
                 strokeWidth={2}
                 fill={`url(#${gradientId})`}
-                dot={history.length <= 30 ? { fill: color, r: history.length <= 7 ? 3 : 2, strokeWidth: 0 } : false}
-                activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+                dot={pointDot}
+                activeDot={activePointDot}
+                connectNulls
                 isAnimationActive={false}
               />
             </AreaChart>
@@ -292,7 +337,7 @@ export function ManualMetricCard({
 
       {/* Sélecteur période */}
       <div className="flex gap-0.5">
-        {PERIODS.map((p, idx) => (
+        {PERIODS_WITH_ALL.map((p, idx) => (
           <button
             key={p.label}
             onClick={() => setPeriodIdx(idx)}

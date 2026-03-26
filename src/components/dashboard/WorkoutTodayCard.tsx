@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Timer } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 
 const sportLabels: Record<string, string> = {
   running: "Course",
@@ -59,7 +60,8 @@ function formatDuration(sec: number): string {
   return `${m} min`;
 }
 
-export function WorkoutTodayCard({ date }: { date?: string }) {
+export function WorkoutTodayCard({ date, detailPath }: { date?: string; detailPath?: string }) {
+  const navigate = useNavigate();
   const { data, isLoading } = useTodayWorkouts(date);
   const mode = data?.mode ?? "today";
   const workouts = data?.workouts ?? [];
@@ -87,7 +89,16 @@ export function WorkoutTodayCard({ date }: { date?: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Timer className="h-3.5 w-3.5" />
-          <span>Entraînement</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            Entraînement
+          </button>
         </div>
         {totalCal > 0 && (
           <span className="text-[10px] text-muted-foreground">{totalCal} cal</span>

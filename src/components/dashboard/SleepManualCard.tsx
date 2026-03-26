@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend,
@@ -119,7 +120,8 @@ function useSleepHistory(days: number) {
   });
 }
 
-export function SleepManualCard({ date }: { date?: string }) {
+export function SleepManualCard({ date, detailPath }: { date?: string; detailPath?: string }) {
+  const navigate = useNavigate();
   const [periodIdx, setPeriodIdx] = usePersistedChartPeriod("sleep", PERIODS);
   const [open, setOpen] = useState(false);
   const [dateValue, setDateValue] = useState(getYesterdayDate);
@@ -201,7 +203,16 @@ export function SleepManualCard({ date }: { date?: string }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
           <Moon className="h-4 w-4" />
-          <span>Sommeil</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            Sommeil
+          </button>
         </div>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerTrigger asChild>

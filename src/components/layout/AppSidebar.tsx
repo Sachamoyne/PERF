@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LayoutDashboard, Timer, Swords, Dumbbell, Settings, ChevronRight, BookOpen, Brain } from "lucide-react";
+import { LayoutDashboard, Timer, Bike, Waves, Swords, Dumbbell, Settings, ChevronRight, BookOpen, Brain } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -24,6 +24,8 @@ const mentalItems = [
 
 const sportItems = [
   { title: "Running", url: "/running", icon: Timer },
+  { title: "Vélo", url: "/cycling", icon: Bike },
+  { title: "Natation", url: "/swimming", icon: Waves },
   { title: "Raquette", url: "/racket", icon: Swords },
   { title: "Musculation", url: "/strength", icon: Dumbbell },
 ];

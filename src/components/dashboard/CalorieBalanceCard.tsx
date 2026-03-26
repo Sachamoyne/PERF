@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, Cell, ResponsiveContainer, XAxis, Tooltip, ReferenceLine } from "recharts";
 import { Scale } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { addDays, format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { parseLocalDate } from "@/lib/utils";
@@ -134,7 +135,8 @@ function useCalorieBalance(days = 14, date?: string) {
   });
 }
 
-export function CalorieBalanceCard({ date }: { date?: string }) {
+export function CalorieBalanceCard({ date, detailPath }: { date?: string; detailPath?: string }) {
+  const navigate = useNavigate();
   const { data = [], isLoading } = useCalorieBalance(14, date);
 
   const latest = date ? data.find((d) => d.date === date) : data.at(-1);
@@ -151,7 +153,16 @@ export function CalorieBalanceCard({ date }: { date?: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Scale className="h-3.5 w-3.5" />
-          <span>Balance calorique</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            Balance calorique
+          </button>
         </div>
         <span className="text-[9px] text-muted-foreground">food − (SMR + sport)</span>
       </div>

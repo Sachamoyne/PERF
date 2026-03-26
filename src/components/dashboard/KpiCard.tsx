@@ -5,11 +5,12 @@ import {
   Area, AreaChart, Bar, BarChart,
   CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import { TrendingUp, TrendingDown } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
+import { useNavigate } from "react-router-dom";
 import type { Database } from "@/integrations/supabase/types";
 import { usePersistedChartPeriod } from "@/hooks/usePersistedChartPeriod";
+import { parseLocalDate } from "@/lib/utils";
 
 type MetricType = Database["public"]["Enums"]["metric_type"];
 
@@ -18,6 +19,10 @@ const PERIODS = [
   { label: "1m",  days: 30  },
   { label: "3m",  days: 90  },
   { label: "1a",  days: 365 },
+] as const;
+const PERIODS_WITH_ALL = [
+  ...PERIODS,
+  { label: "Tout", days: null },
 ] as const;
 
 // Métriques dont l'axe Y doit commencer à 0
@@ -39,7 +44,8 @@ function toLocalDateStr(iso: string): string {
 
 function aggregateByMonth(
   data: { value: number; date: string }[],
-  mode: "average" | "sum"
+  mode: "average" | "sum",
+  labelVariant: "month_short" | "month_year" | "month_year_short" = "month_short"
 ): { label: string; v: number; date: string }[] {
   const byMonth: Record<string, number[]> = {};
   for (const e of data) {
@@ -54,8 +60,12 @@ function aggregateByMonth(
         ? vals.reduce((s, x) => s + x, 0)
         : Math.round((vals.reduce((s, x) => s + x, 0) / vals.length) * 10) / 10;
       const [y, m] = key.split("-");
-      const lbl = new Date(Number(y), Number(m)-1, 1)
-        .toLocaleDateString("fr-FR", { month: "short" });
+      const date = new Date(Number(y), Number(m)-1, 1);
+      const lbl = labelVariant === "month_year"
+        ? date.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })
+        : labelVariant === "month_year_short"
+          ? date.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" })
+          : date.toLocaleDateString("fr-FR", { month: "short" });
       return { label: lbl, v, date: key + "-01" };
     });
 }
@@ -71,42 +81,49 @@ interface KpiCardProps {
   invertDelta?: boolean;
   aggMode?: "average" | "sum";
   forceRaw?: boolean;
+  detailPath?: string;
 }
 
-function useMetricHistory(metricType: string, days: number, enabled: boolean) {
+function useMetricHistory(metricType: string, days: number | null, enabled: boolean) {
   return useQuery({
-    queryKey: ["kpi_metric", metricType, days],
+    queryKey: ["kpi_metric", metricType, days ?? "all"],
     enabled,
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,"0")}-${String(since.getDate()).padStart(2,"0")}`;
-      const { data, error } = await supabase
+      let query = supabase
         .from("health_metrics")
         .select("value, date, unit")
         .eq("metric_type", metricType as MetricType)
-        .gte("date", sinceStr)
         .order("date", { ascending: true });
+      if (days != null) {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,"0")}-${String(since.getDate()).padStart(2,"0")}`;
+        query = query.gte("date", sinceStr);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data ?? [];
     },
   });
 }
 
-function useBodyMetricHistory(field: string, days: number) {
+function useBodyMetricHistory(field: string, days: number | null) {
   return useQuery({
-    queryKey: ["kpi_body_metric", field, days],
+    queryKey: ["kpi_body_metric", field, days ?? "all"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,"0")}-${String(since.getDate()).padStart(2,"0")}`;
-      const { data, error } = await supabase
+      let query = supabase
         .from("body_metrics")
         .select("date, weight_kg, body_fat_pc, muscle_mass_kg")
-        .gte("date", sinceStr)
         .order("date", { ascending: true });
+      if (days != null) {
+        const since = new Date();
+        since.setDate(since.getDate() - days);
+        const sinceStr = `${since.getFullYear()}-${String(since.getMonth()+1).padStart(2,"0")}-${String(since.getDate()).padStart(2,"0")}`;
+        query = query.gte("date", sinceStr);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data ?? [])
         .map((d: any) => ({ value: d[field] as number | null, date: d.date }))
@@ -117,17 +134,22 @@ function useBodyMetricHistory(field: string, days: number) {
 
 export function KpiCard({
   metricType, label, unit, color, icon,
-  source = "health_metrics", bodyField, invertDelta, aggMode = "average", forceRaw = false,
+  source = "health_metrics", bodyField, invertDelta, aggMode = "average", forceRaw = false, detailPath,
 }: KpiCardProps) {
+  const navigate = useNavigate();
   const STEPS_GOAL = 10_000;
   const isSteps = metricType === "steps";
+  const supportsAllPeriod =
+    (source === "body_metrics" && (bodyField === "weight_kg" || bodyField === "body_fat_pc"));
+  const periodOptions = supportsAllPeriod ? PERIODS_WITH_ALL : PERIODS;
   const chartPeriodKey = source === "body_metrics"
     ? (bodyField ?? metricType)
     : metricType;
-  const [periodIdx, setPeriodIdx] = usePersistedChartPeriod(chartPeriodKey, PERIODS);
-  const period = PERIODS[periodIdx];
+  const [periodIdx, setPeriodIdx] = usePersistedChartPeriod(chartPeriodKey, periodOptions);
+  const period = periodOptions[periodIdx];
   const shouldForceRaw = forceRaw || metricType === "weight";
-  const isMonthly = period.days >= 90 && !shouldForceRaw;
+  const isAllPeriod = period.days == null;
+  const isMonthly = !isAllPeriod && period.days >= 90 && !shouldForceRaw;
   const zeroBased = ZERO_BASED.includes(metricType);
 
   const enableHealth = source === "health_metrics" && isHealthMetricType(metricType);
@@ -174,20 +196,40 @@ export function KpiCard({
     };
   }, [history, source, bodyField, unit, aggMode]);
 
-  const chartData = isMonthly ? monthlyData : dailyData;
+  const chartData = useMemo(() => {
+    if (!isAllPeriod) return isMonthly ? monthlyData : dailyData;
+    if (history.length === 0) return [];
+
+    const firstDate = parseLocalDate(history[0].date);
+    const lastDate = parseLocalDate(history[history.length - 1].date);
+    const spanDays = Math.max(1, Math.round((lastDate.getTime() - firstDate.getTime()) / 86_400_000));
+
+    if (spanDays < 90) {
+      return history.map((e, i) => ({
+        v: e.value,
+        i,
+        date: e.date,
+        label: format(new Date(e.date + "T12:00:00"), "d MMM", { locale: fr }),
+      }));
+    }
+
+    const monthLabelVariant = spanDays < 365 ? "month_year" : "month_year_short";
+    return aggregateByMonth(history, aggMode, monthLabelVariant);
+  }, [isAllPeriod, isMonthly, monthlyData, dailyData, history, aggMode]);
   const chartDataWithGoal = useMemo(() => {
     if (!isSteps) return chartData;
     return chartData.map((d) => ({
       ...d,
-      aboveGoal: d.v >= STEPS_GOAL ? d.v : null,
-      belowGoal: d.v < STEPS_GOAL ? d.v : null,
+      aboveGoal: typeof d.v === "number" && d.v >= STEPS_GOAL ? d.v : null,
+      belowGoal: typeof d.v === "number" && d.v < STEPS_GOAL ? d.v : null,
     }));
   }, [chartData, isSteps]);
 
   // Bornes Y adaptatives
   const { yMin, yMax, yWidth } = useMemo(() => {
     if (chartData.length === 0) return { yMin: 0, yMax: 10, yWidth: 40 };
-    const vals = chartData.map(d => d.v);
+    const vals = chartData.map((d) => d.v).filter((v): v is number => typeof v === "number");
+    if (vals.length === 0) return { yMin: 0, yMax: 10, yWidth: 40 };
     const minV = Math.min(...vals);
     const maxV = Math.max(...vals);
     const pad = Math.max((maxV - minV) * 0.15, 1);
@@ -198,10 +240,6 @@ export function KpiCard({
     const w = Math.max(28, maxDigits * 7 + 8);
     return { yMin: lo, yMax: hi, yWidth: w };
   }, [chartData, zeroBased, isSteps]);
-
-  const deltaIsGood = delta !== null && delta !== 0
-    ? (invertDelta ? delta < 0 : delta > 0)
-    : null;
 
   const tooltipStyle = {
     backgroundColor: "hsl(var(--card))",
@@ -216,6 +254,12 @@ export function KpiCard({
   const valueColor = isSteps
     ? (isGoalMetToday ? "hsl(152, 60%, 48%)" : "hsl(0, 84%, 60%)")
     : color;
+  const pointDot = useMemo(() => {
+    if (chartData.length > 80) return false;
+    if (isAllPeriod) return { fill: color, r: chartData.length <= 24 ? 4 : 2, strokeWidth: 0 };
+    return chartData.length <= 30 ? { fill: color, r: chartData.length <= 7 ? 3 : 2, strokeWidth: 0 } : false;
+  }, [chartData.length, isAllPeriod, color]);
+  const activePointDot = useMemo(() => ({ r: isAllPeriod ? 6 : 4, fill: color, strokeWidth: 0 }), [isAllPeriod, color]);
 
   return (
     <div className="glass-card p-3 flex flex-col gap-2" style={{ minHeight: "220px" }}>
@@ -223,14 +267,17 @@ export function KpiCard({
       <div className="flex items-center justify-between gap-1">
         <div className="flex items-center gap-1.5 text-muted-foreground text-xs min-w-0">
           <span className="shrink-0">{icon}</span>
-          <span className="truncate">{label}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`truncate transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            {label}
+          </button>
         </div>
-        {delta !== null && delta !== 0 && (
-          <div className={`flex items-center gap-0.5 text-[10px] font-medium shrink-0 ${deltaIsGood ? "text-primary" : "text-destructive"}`}>
-            {delta > 0 ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-            {deltaLabel}
-          </div>
-        )}
       </div>
 
       {/* Valeur */}
@@ -333,8 +380,9 @@ export function KpiCard({
                 stroke={color}
                 strokeWidth={2}
                 fill={isSteps ? "transparent" : `url(#grad-${metricType})`}
-                dot={history.length <= 30 ? { fill: color, r: history.length <= 7 ? 3 : 2, strokeWidth: 0 } : false}
-                activeDot={{ r: 4, fill: color, strokeWidth: 0 }}
+                dot={pointDot}
+                activeDot={activePointDot}
+                connectNulls
                 isAnimationActive={false}
               />
               {isSteps && (
@@ -353,7 +401,7 @@ export function KpiCard({
 
       {/* Sélecteur période */}
       <div className="flex gap-0.5">
-        {PERIODS.map((p, idx) => (
+        {periodOptions.map((p, idx) => (
           <button
             key={p.label}
             onClick={() => setPeriodIdx(idx)}

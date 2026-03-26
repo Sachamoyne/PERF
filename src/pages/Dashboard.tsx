@@ -58,10 +58,9 @@ export default function Dashboard() {
         <DateNav offset={offset} setOffset={setOffset} />
       </div>
 
-      {/* Row 1 : Calories + Sommeil + Poids */}
+      {/* Row 1 : Calories + Poids + Masse Grasse */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <CaloriesCard date={selectedDateStr} />
-        <SleepManualCard date={selectedDateStr} />
+        <CaloriesCard date={selectedDateStr} detailPath="/details/calories" />
         <KpiCard
           metricType="weight"
           label="Poids"
@@ -71,45 +70,7 @@ export default function Dashboard() {
           source="body_metrics"
           bodyField="weight_kg"
           forceRaw
-        />
-      </div>
-
-      {/* Row 2 : Steps + Workout + Protéines */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <KpiCard
-          metricType="steps"
-          label="Pas"
-          unit=""
-          color="hsl(152, 60%, 48%)"
-          icon={<Footprints className="h-4 w-4" />}
-        />
-        <WorkoutTodayCard date={selectedDateStr} />
-        <KpiCard
-          metricType="protein"
-          label="Protéines"
-          unit="g"
-          color="hsl(172, 66%, 50%)"
-          icon={<Activity className="h-4 w-4" />}
-        />
-      </div>
-
-      {/* Row 3 : HRV + VO2Max + Masse Grasse */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <ManualMetricCard
-          metricType="hrv"
-          label="HRV"
-          unit="ms"
-          color="hsl(152, 60%, 48%)"
-          icon={<Activity className="h-4 w-4" />}
-          targetValue={60}
-        />
-        <ManualMetricCard
-          metricType="vo2max"
-          label="VO2Max"
-          unit="ml/kg/min"
-          color="hsl(172, 66%, 50%)"
-          icon={<Wind className="h-4 w-4" />}
-          targetValue={50}
+          detailPath="/details/weight"
         />
         <KpiCard
           metricType="body_fat"
@@ -121,13 +82,58 @@ export default function Dashboard() {
           bodyField="body_fat_pc"
           invertDelta
           forceRaw
+          detailPath="/details/body-fat"
+        />
+      </div>
+
+      {/* Row 2 : Protéines + Sommeil + Pas */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <KpiCard
+          metricType="protein"
+          label="Protéines"
+          unit="g"
+          color="hsl(172, 66%, 50%)"
+          icon={<Activity className="h-4 w-4" />}
+          detailPath="/details/protein"
+        />
+        <SleepManualCard date={selectedDateStr} detailPath="/details/sleep" />
+        <KpiCard
+          metricType="steps"
+          label="Pas"
+          unit=""
+          color="hsl(152, 60%, 48%)"
+          icon={<Footprints className="h-4 w-4" />}
+          detailPath="/details/steps"
+        />
+      </div>
+
+      {/* Row 3 : HRV + Workout + VO2Max */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <ManualMetricCard
+          metricType="hrv"
+          label="HRV"
+          unit="ms"
+          color="hsl(152, 60%, 48%)"
+          icon={<Activity className="h-4 w-4" />}
+          targetValue={60}
+          detailPath="/details/hrv"
+        />
+        <WorkoutTodayCard date={selectedDateStr} detailPath="/details/training" />
+        <ManualMetricCard
+          metricType="vo2max"
+          label="VO2Max"
+          unit="ml/kg/min"
+          color="hsl(172, 66%, 50%)"
+          icon={<Wind className="h-4 w-4" />}
+          targetValue={50}
+          detailPath="/details/vo2max"
         />
       </div>
 
       {/* Row 4 : Balance calorique + Semaine sportive */}
       <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-3">
-        <CalorieBalanceCard date={selectedDateStr} />
-        <WeeklySummary date={selectedDateStr} />
+        <CalorieBalanceCard date={selectedDateStr} detailPath="/details/calories" />
+        <WeeklySummary date={selectedDateStr} detailPath="/details/training" />
       </div>
 
       <CentralManualEntryFab date={selectedDateStr} />

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { Flame, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { computeAndSaveCalorieBalance } from "@/services/calorieBalance";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,8 @@ function useLatestNutrition(date?: string) {
   });
 }
 
-export function CaloriesCard({ date }: { date?: string }) {
+export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?: string }) {
+  const navigate = useNavigate();
   const { data, isLoading } = useLatestNutrition(date);
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -156,11 +158,26 @@ export function CaloriesCard({ date }: { date?: string }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Flame className="h-3.5 w-3.5" />
-          <span>Calories</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (detailPath) navigate(detailPath);
+            }}
+            className={`transition-colors ${detailPath ? "cursor-pointer hover:text-foreground hover:underline" : ""}`}
+          >
+            Calories
+          </button>
         </div>
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="hidden h-7 w-7 text-muted-foreground hover:text-foreground"
+              aria-hidden="true"
+              tabIndex={-1}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </DrawerTrigger>
