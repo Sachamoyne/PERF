@@ -5,12 +5,12 @@ import { Timer, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const sportColors: Record<string, string> = {
-  running: "bg-running/20 text-running",
-  cycling: "bg-cycling/20 text-cycling",
-  swimming: "bg-swimming/20 text-swimming",
-  tennis: "bg-tennis/20 text-tennis",
-  padel: "bg-padel/20 text-padel",
-  strength: "bg-strength/20 text-strength",
+  running: "bg-primary/15 text-primary",
+  cycling: "bg-primary/15 text-primary",
+  swimming: "bg-primary/15 text-primary",
+  tennis: "bg-primary/15 text-primary",
+  padel: "bg-primary/15 text-primary",
+  strength: "bg-primary/15 text-primary",
 };
 
 const sportRoutes: Record<string, string> = {

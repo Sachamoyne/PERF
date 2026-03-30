@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserProfile } from "@/hooks/useUserProfile";
 import Dashboard from "./pages/Dashboard";
 
 import Running from "./pages/Running";
@@ -11,9 +12,11 @@ import Cycling from "./pages/Cycling";
 import Swimming from "./pages/Swimming";
 import Racket from "./pages/Racket";
 import Strength from "./pages/Strength";
+import SportMenu from "./pages/SportMenu";
 import Journal from "./pages/Journal";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
+import OnboardingPage from "./pages/OnboardingPage";
 import NotFound from "./pages/NotFound";
 import {
   CaloriesDetailPage,
@@ -29,10 +32,29 @@ import {
 
 const queryClient = new QueryClient();
 
+function LoggedRedirect({
+  to,
+  authState,
+}: {
+  to: string;
+  authState: {
+    isAuthenticated: boolean;
+    authLoading: boolean;
+    profileLoading: boolean;
+    isProfileComplete: boolean;
+    pathname: string;
+  };
+}) {
+  console.log("[router] navigation vers:", to, "auth state:", authState);
+  return <Navigate to={to} replace />;
+}
+
 function ProtectedRoutes() {
   const { user, loading } = useAuth();
+  const { isLoading: profileLoading, isComplete: isProfileComplete } = useUserProfile();
+  const location = useLocation();
 
-  if (loading) {
+  if (loading || (user && profileLoading)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-muted-foreground text-sm">Chargement...</div>
@@ -41,7 +63,33 @@ function ProtectedRoutes() {
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return (
+      <LoggedRedirect
+        to="/auth"
+        authState={{
+          isAuthenticated: false,
+          authLoading: loading,
+          profileLoading,
+          isProfileComplete,
+          pathname: location.pathname,
+        }}
+      />
+    );
+  }
+  
+  if (!isProfileComplete) {
+    return (
+      <LoggedRedirect
+        to="/onboarding"
+        authState={{
+          isAuthenticated: true,
+          authLoading: loading,
+          profileLoading,
+          isProfileComplete,
+          pathname: location.pathname,
+        }}
+      />
+    );
   }
 
   return (
@@ -53,6 +101,7 @@ function ProtectedRoutes() {
         <Route path="/swimming" element={<Swimming />} />
         <Route path="/racket" element={<Racket />} />
         <Route path="/strength" element={<Strength />} />
+        <Route path="/sport" element={<SportMenu />} />
         <Route path="/journal" element={<Journal />} />
         <Route path="/details/calories" element={<CaloriesDetailPage />} />
         <Route path="/details/weight" element={<WeightDetailPage />} />
@@ -72,6 +121,9 @@ function ProtectedRoutes() {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const { isLoading: profileLoading, isComplete: isProfileComplete } = useUserProfile();
+  const location = useLocation();
+  const onboardingEditMode = location.pathname === "/onboarding" && new URLSearchParams(location.search).get("mode") === "edit";
 
   if (loading) {
     return (
@@ -83,7 +135,82 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route
+        path="/auth"
+        element={
+          !user
+            ? <AuthPage />
+            : profileLoading
+              ? (
+                <div className="min-h-screen bg-background flex items-center justify-center">
+                  <div className="text-muted-foreground text-sm">Chargement...</div>
+                </div>
+              )
+              : isProfileComplete
+                ? (
+                  <LoggedRedirect
+                    to="/"
+                    authState={{
+                      isAuthenticated: true,
+                      authLoading: loading,
+                      profileLoading,
+                      isProfileComplete,
+                      pathname: location.pathname,
+                    }}
+                  />
+                )
+                : (
+                  <LoggedRedirect
+                    to="/onboarding"
+                    authState={{
+                      isAuthenticated: true,
+                      authLoading: loading,
+                      profileLoading,
+                      isProfileComplete,
+                      pathname: location.pathname,
+                    }}
+                  />
+                )
+        }
+      />
+      <Route
+        path="/onboarding"
+        element={
+          !user
+            ? (
+              <LoggedRedirect
+                to="/auth"
+                authState={{
+                  isAuthenticated: false,
+                  authLoading: loading,
+                  profileLoading,
+                  isProfileComplete,
+                  pathname: location.pathname,
+                }}
+              />
+            )
+            : profileLoading
+              ? (
+                <div className="min-h-screen bg-background flex items-center justify-center">
+                  <div className="text-muted-foreground text-sm">Chargement...</div>
+                </div>
+              )
+              : isProfileComplete && !onboardingEditMode
+                ? (
+                  <LoggedRedirect
+                    to="/"
+                    authState={{
+                      isAuthenticated: true,
+                      authLoading: loading,
+                      profileLoading,
+                      isProfileComplete,
+                      pathname: location.pathname,
+                    }}
+                  />
+                )
+                : <OnboardingPage />
+        }
+      />
       <Route path="/*" element={<ProtectedRoutes />} />
     </Routes>
   );

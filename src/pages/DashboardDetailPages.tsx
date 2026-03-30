@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useActivePhase } from "@/hooks/useActivePhase";
+import { CALORIES_PHASE_INFO, STEPS_PHASE_INFO, WEIGHT_PHASE_CONTENT } from "@/constants/phaseContent";
 import { getParisLocalDateString, useLatestNutrition } from "@/hooks/useLatestNutrition";
 import {
   ResponsiveContainer,
@@ -65,8 +66,8 @@ function DetailShell({
             <button
               key={p.label}
               onClick={() => onPeriodChange(p.days)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                period === p.days ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              className={`period-pill ${
+                period === p.days ? "period-pill-active" : ""
               }`}
             >
               {p.label}
@@ -252,10 +253,10 @@ type NutritionDef = {
 };
 
 const NUTRITION_DEFS: NutritionDef[] = [
-  { key: "calories", label: "Calories", dataTypes: ["dietaryEnergyConsumed"], unit: "kcal", target: 3400, dashWhenZero: false, supportedByPlugin: true },
-  { key: "protein", label: "Protéines", dataTypes: ["dietaryProtein"], unit: "g", target: 220, dashWhenZero: false, supportedByPlugin: true },
-  { key: "carbs", label: "Glucides", dataTypes: ["dietaryCarbohydrates"], unit: "g", target: 521, dashWhenZero: false, supportedByPlugin: true },
-  { key: "fat", label: "Lipides", dataTypes: ["dietaryFat"], unit: "g", target: 103, dashWhenZero: false, supportedByPlugin: true },
+  { key: "calories", label: "Calories", dataTypes: ["dietaryEnergyConsumed"], unit: "kcal", target: 0, dashWhenZero: false, supportedByPlugin: true },
+  { key: "protein", label: "Protéines", dataTypes: ["dietaryProtein"], unit: "g", target: 0, dashWhenZero: false, supportedByPlugin: true },
+  { key: "carbs", label: "Glucides", dataTypes: ["dietaryCarbohydrates"], unit: "g", target: 0, dashWhenZero: false, supportedByPlugin: true },
+  { key: "fat", label: "Lipides", dataTypes: ["dietaryFat"], unit: "g", target: 0, dashWhenZero: false, supportedByPlugin: true },
   { key: "fiber", label: "Fibres", dataTypes: [], unit: "g", target: 45, dashWhenZero: true, supportedByPlugin: false },
   { key: "potassium", label: "Potassium", dataTypes: [], unit: "mg", target: 3500, dashWhenZero: true, supportedByPlugin: false },
   { key: "calcium", label: "Calcium", dataTypes: [], unit: "mg", target: 1000, dashWhenZero: true, supportedByPlugin: false },
@@ -354,7 +355,7 @@ function useNutritionSeries(days: number) {
 export function CaloriesDetailPage() {
   const [period, setPeriod] = useState<Period>(30);
   const [chartKey, setChartKey] = useState<NutritionKey>("calories");
-  const { phase } = useActivePhase();
+  const { phase, activePhaseKey } = useActivePhase();
   const { data: nutritionSeries = EMPTY_NUTRITION_SERIES } = useNutritionSeries(period);
   const todayParis = getParisLocalDateString();
   const { data: latestNutrition } = useLatestNutrition(todayParis);
@@ -372,8 +373,9 @@ export function CaloriesDetailPage() {
     chartKey === "carbs" ? phase.carbs :
     chartKey === "fat" ? phase.fat :
     chartDef.target;
+  const hasTargets = phase.calories != null && phase.protein != null && phase.carbs != null && phase.fat != null;
   const caloriesToday = latestNutrition?.calories ?? 0;
-  const remaining = Math.max(phase.calories - caloriesToday, 0);
+  const remaining = Math.max((phase.calories ?? 0) - caloriesToday, 0);
   const hasAnyData = useMemo(
     () => NUTRITION_DEFS.some((n) => (nutritionSeries[n.key] ?? []).length > 0),
     [nutritionSeries]
@@ -389,8 +391,8 @@ export function CaloriesDetailPage() {
             <button
               key={key}
               onClick={() => setChartKey(key)}
-              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                chartKey === key ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              className={`period-pill ${
+                chartKey === key ? "period-pill-active" : ""
               }`}
             >
               {nutrient.label}
@@ -410,7 +412,9 @@ export function CaloriesDetailPage() {
               <XAxis dataKey="label" />
               <YAxis />
               <Tooltip />
-              <ReferenceLine y={chartTarget} stroke="hsl(25,95%,53%)" strokeDasharray="5 5" />
+              {typeof chartTarget === "number" && chartTarget > 0 ? (
+                <ReferenceLine y={chartTarget} stroke="hsl(25,95%,53%)" strokeDasharray="5 5" />
+              ) : null}
               <Line type="monotone" dataKey="value" stroke="hsl(25,95%,53%)" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -418,17 +422,23 @@ export function CaloriesDetailPage() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Calories du jour</p><p className="text-2xl font-display">{Math.round(caloriesToday)}</p></div>
-        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Objectif</p><p className="text-2xl font-display">{phase.calories}</p></div>
-        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Restantes</p><p className="text-2xl font-display">{Math.round(remaining)}</p></div>
+        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Objectif</p><p className="text-2xl font-display">{phase.calories ?? "—"}</p></div>
+        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Restantes</p><p className="text-2xl font-display">{hasTargets ? Math.round(remaining) : "—"}</p></div>
       </div>
+      {!hasTargets && (
+        <div className="glass-card p-4 text-sm text-muted-foreground">
+          Complète ton profil dans Paramètres pour calculer tes objectifs personnalisés.
+        </div>
+      )}
       {!hasAnyData && <EmptyData />}
+      <InfoCard text={CALORIES_PHASE_INFO[activePhaseKey]} />
       <StaticTable
         headers={["Nutriment", "Objectif/jour", "Rôle", "Aliments riches"]}
         rows={[
-          ["Calories", `${phase.calories} kcal`, "Énergie pour s'entraîner et construire du muscle", "Tous les aliments"],
-          ["Protéines", `${phase.protein}g`, "Synthèse musculaire (MPS)", "Poulet, œufs, thon, skyr, whey"],
-          ["Glucides", `${phase.carbs}g`, "Carburant musculaire, recharge glycogène", "Riz, flocons d'avoine, pâtes, banane"],
-          ["Lipides", `${phase.fat}g`, "Production de testostérone et hormones anabolisantes", "Noix de cajou, huile d'olive, saumon, avocat"],
+          ["Calories", phase.calories != null ? `${phase.calories} kcal` : "—", "Énergie pour s'entraîner et construire du muscle", "Tous les aliments"],
+          ["Protéines", phase.protein != null ? `${phase.protein}g` : "—", "Synthèse musculaire (MPS)", "Poulet, œufs, thon, skyr, whey"],
+          ["Glucides", phase.carbs != null ? `${phase.carbs}g` : "—", "Carburant musculaire, recharge glycogène", "Riz, flocons d'avoine, pâtes, banane"],
+          ["Lipides", phase.fat != null ? `${phase.fat}g` : "—", "Production de testostérone et hormones anabolisantes", "Noix de cajou, huile d'olive, saumon, avocat"],
         ]}
       />
     </DetailShell>
@@ -437,7 +447,7 @@ export function CaloriesDetailPage() {
 
 export function WeightDetailPage() {
   const [period, setPeriod] = useState<Period>(30);
-  const { phase } = useActivePhase();
+  const { phase, activePhaseKey } = useActivePhase();
   const { data: series = [] } = useBodySeries("weight_kg", period);
   if (series.length === 0) return <DetailShell title="Poids" period={period} onPeriodChange={setPeriod}><EmptyData /></DetailShell>;
   const data = lineChartData(series);
@@ -451,9 +461,7 @@ export function WeightDetailPage() {
     Math.max(Math.abs(phase.weightMonthlyMinKg), Math.abs(phase.weightMonthlyMaxKg))
   );
   const phaseObjectiveLabel = phaseIsStable ? "Rythme cible mensuel (stable)" : "Rythme cible mensuel";
-  const phaseRangeText = phaseIsStable
-    ? "stable"
-    : `${phase.weightMonthlyMinKg > 0 ? "+" : ""}${phase.weightMonthlyMinKg} à ${phase.weightMonthlyMaxKg > 0 ? "+" : ""}${phase.weightMonthlyMaxKg} kg/mois`;
+  const weightPhaseContent = WEIGHT_PHASE_CONTENT[activePhaseKey];
   return (
     <DetailShell title="Poids" period={period} onPeriodChange={setPeriod}>
       <div className="glass-card p-4 h-[300px]">
@@ -473,9 +481,9 @@ export function WeightDetailPage() {
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Tendance</p><p className="text-2xl font-display capitalize">{trend}</p></div>
       </div>
       <ObjectiveCard label={phaseObjectiveLabel} current={Math.abs(delta)} target={phaseTargetMonthly} unit="kg" />
-      <InfoCard text="Dans le cadre d'un lean bulk, une prise de 0,5 à 1 kg/mois est idéale — assez pour construire du muscle sans accumuler trop de gras. Une prise trop rapide (>1,5 kg/mois) signifie souvent trop de gras. Trop lente (<0,2 kg/mois) peut indiquer un déficit calorique." />
+      <InfoCard text={weightPhaseContent.info} />
       <StaticTable headers={["Indicateur", "Valeur cible", "Interprétation"]} rows={[
-        ["Rythme de prise", phaseRangeText, "Objectif de la phase active"],
+        ["Rythme de prise", weightPhaseContent.targetRow, "Objectif de la phase active"],
         ["Poids à jeun", "Mesurer le matin, après toilettes", "Réduire la variabilité"],
         ["Variation normale jour/jour", "±0,5 à ±1,5 kg", "Eau, digestion — pas de vraie prise de gras"],
         ["Signal d'alerte", ">1,5 kg/mois", "Ajuster les calories à la baisse"],
@@ -531,6 +539,7 @@ export function ProteinDetailPage() {
   const data = lineChartData(series);
   const today = series.at(-1)?.value ?? 0;
   const target = phase.protein;
+  const targetSafe = target ?? 0;
   return (
     <DetailShell title="Protéines" period={period} onPeriodChange={setPeriod}>
       <div className="glass-card p-4 h-[300px]">
@@ -540,18 +549,18 @@ export function ProteinDetailPage() {
             <XAxis dataKey="label" />
             <YAxis />
             <Tooltip />
-            <ReferenceLine y={target} stroke="hsl(172,66%,50%)" strokeDasharray="5 5" />
+            {targetSafe > 0 ? <ReferenceLine y={targetSafe} stroke="hsl(172,66%,50%)" strokeDasharray="5 5" /> : null}
             <Bar dataKey="value" fill="hsl(172,66%,50%)" />
           </BarChart>
         </ResponsiveContainer>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Protéines du jour</p><p className="text-2xl font-display">{Math.round(today)} g</p></div>
-        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Objectif</p><p className="text-2xl font-display">{target} g</p></div>
-        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">% atteint</p><p className="text-2xl font-display">{Math.round((today / target) * 100)}%</p></div>
+        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Objectif</p><p className="text-2xl font-display">{target != null ? `${target} g` : "—"}</p></div>
+        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">% atteint</p><p className="text-2xl font-display">{targetSafe > 0 ? `${Math.round((today / targetSafe) * 100)}%` : "—"}</p></div>
       </div>
-      <ObjectiveCard label="Objectif protéines journalier" current={today} target={target} unit="g" />
-      <InfoCard text={`Les protéines sont les briques de construction du muscle. L'objectif de ${target}g/jour est piloté par ta phase active.`} />
+      {targetSafe > 0 ? <ObjectiveCard label="Objectif protéines journalier" current={today} target={targetSafe} unit="g" /> : null}
+      <InfoCard text={`Les protéines sont les briques de construction du muscle. L'objectif journalier est piloté par ta phase active.`} />
       <StaticTable headers={["Aliment", "Portion", "Protéines"]} rows={[
         ["Poulet (blanc)", "200g", "~46g"],
         ["Thon en boîte", "150g", "~35g"],
@@ -567,6 +576,7 @@ export function ProteinDetailPage() {
 
 export function SleepDetailPage() {
   const [period, setPeriod] = useState<Period>(30);
+  const { phase } = useActivePhase();
   const { data: series = [] } = useSleepSeries(period);
   if (series.length === 0) return <DetailShell title="Sommeil" period={period} onPeriodChange={setPeriod}><EmptyData /></DetailShell>;
   const data = series.map((d) => ({ ...d, label: format(new Date(`${d.date}T12:00:00`), "d MMM", { locale: fr }) }));
@@ -594,7 +604,7 @@ export function SleepDetailPage() {
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Score moyen</p><p className="text-2xl font-display">{Math.round(avgScore)}</p></div>
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Meilleure nuit</p><p className="text-2xl font-display">{best.hours.toFixed(1)} h</p></div>
       </div>
-      <ObjectiveCard label="Objectif durée de sommeil" current={avgHours} target={8} unit="h" />
+      <ObjectiveCard label="Objectif durée de sommeil" current={avgHours} target={phase.sleepHoursTarget} unit="h" />
       <InfoCard text="Le sommeil est le moment où 70% de la production de GH (hormone de croissance) a lieu. Moins de 7h = récupération musculaire compromise, cortisol élevé, appétit dérégulé. Entre 22h et 2h du matin, le sommeil est particulièrement récupérateur." />
       <StaticTable headers={["Métrique", "Cible", "Signification"]} rows={[
         ["Durée totale", "8-9h", "Optimal pour la récupération musculaire"],
@@ -609,12 +619,13 @@ export function SleepDetailPage() {
 
 export function StepsDetailPage() {
   const [period, setPeriod] = useState<Period>(30);
+  const { phase, activePhaseKey } = useActivePhase();
   const { data: series = [] } = useHealthMetricSeries("steps", period);
   if (series.length === 0) return <DetailShell title="Pas" period={period} onPeriodChange={setPeriod}><EmptyData /></DetailShell>;
   const data = lineChartData(series);
   const today = series.at(-1)?.value ?? 0;
   const avg = series.reduce((s, d) => s + d.value, 0) / series.length;
-  const above = series.filter((d) => d.value >= 10000).length;
+  const above = series.filter((d) => d.value >= phase.stepsTarget).length;
   return (
     <DetailShell title="Pas" period={period} onPeriodChange={setPeriod}>
       <div className="glass-card p-4 h-[300px]">
@@ -624,7 +635,7 @@ export function StepsDetailPage() {
             <XAxis dataKey="label" />
             <YAxis />
             <Tooltip />
-            <ReferenceLine y={10000} stroke="hsl(152,60%,48%)" strokeDasharray="5 5" />
+            <ReferenceLine y={phase.stepsTarget} stroke="hsl(152,60%,48%)" strokeDasharray="5 5" />
             <Bar dataKey="value" fill="hsl(152,60%,48%)" />
           </BarChart>
         </ResponsiveContainer>
@@ -632,14 +643,14 @@ export function StepsDetailPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Pas du jour</p><p className="text-2xl font-display">{Math.round(today)}</p></div>
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Moyenne période</p><p className="text-2xl font-display">{Math.round(avg)}</p></div>
-        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Jours au-dessus de 10k</p><p className="text-2xl font-display">{above}</p></div>
+        <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Jours au-dessus de l'objectif</p><p className="text-2xl font-display">{above}</p></div>
       </div>
-      <ObjectiveCard label="Objectif quotidien" current={today} target={10000} unit="pas" />
-      <InfoCard text="10 000 pas/jour représente ~500-600 kcal de dépense supplémentaire par semaine sans impact sur la récupération musculaire. C'est l'activité NEAT (Non-Exercise Activity Thermogenesis) idéale pour rester lean pendant un lean bulk." />
+      <ObjectiveCard label="Objectif quotidien" current={today} target={phase.stepsTarget} unit="pas" />
+      <InfoCard text={STEPS_PHASE_INFO[activePhaseKey]} />
       <StaticTable headers={["Niveau", "Pas/jour", "Signification"]} rows={[
         ["Sédentaire", "<5 000", "NEAT insuffisant"],
         ["Actif", "7 500-10 000", "Bien"],
-        ["Très actif", ">10 000", "Excellent pour le lean bulk"],
+        ["Très actif", ">10 000", "Excellent pour la phase active"],
       ]} />
     </DetailShell>
   );
@@ -685,6 +696,7 @@ export function HrvDetailPage() {
 
 export function Vo2maxDetailPage() {
   const [period, setPeriod] = useState<Period>(30);
+  const { phase } = useActivePhase();
   const { data: series = [] } = useHealthMetricSeries("vo2max", period);
   if (series.length === 0) return <DetailShell title="VO2Max" period={period} onPeriodChange={setPeriod}><EmptyData /></DetailShell>;
   const data = lineChartData(series);
@@ -710,7 +722,7 @@ export function Vo2maxDetailPage() {
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Variation</p><p className="text-2xl font-display">{delta >= 0 ? "+" : ""}{delta.toFixed(1)}</p></div>
         <div className="glass-card p-4"><p className="text-xs text-muted-foreground">Percentile estimé</p><p className="text-2xl font-display">{percentile}</p></div>
       </div>
-      <ObjectiveCard label="Objectif VO2Max hybride" current={current} target={55} unit="ml/kg/min" />
+      <ObjectiveCard label="Objectif VO2Max hybride" current={current} target={phase.vo2maxTarget} unit="ml/kg/min" />
       <InfoCard text="Le VO2Max mesure ta capacité maximale à utiliser l'oxygène. Pour un athlète hybrid, >55 ml/kg/min est excellent. Il s'améliore avec le travail en zone 2 (course à allure conversation) et les séances HIIT. Avec 58 ml/kg/min, tu es dans le top 10% pour ton âge." />
       <StaticTable headers={["VO2Max (ml/kg/min)", "Niveau", "Percentile (homme 20-25 ans)"]} rows={[
         [">60", "Élite", "Top 5%"],
@@ -725,6 +737,7 @@ export function Vo2maxDetailPage() {
 
 export function TrainingDetailPage() {
   const [period, setPeriod] = useState<Period>(30);
+  const { phase } = useActivePhase();
   const { data: rows = [] } = useWorkoutSeries(period);
   if (rows.length === 0) return <DetailShell title="Entraînement" period={period} onPeriodChange={setPeriod}><EmptyData /></DetailShell>;
   const byDay = new Map<string, number>();
@@ -738,7 +751,13 @@ export function TrainingDetailPage() {
     .map(([date, minutes]) => ({ date, minutes, label: format(new Date(`${date}T12:00:00`), "d MMM", { locale: fr }) }));
   const totalMin = rows.reduce((s, r) => s + r.minutes, 0);
   const sessions = rows.length;
-  const planned = period === 7 ? 6 : period === 30 ? 24 : period === 90 ? 72 : 288;
+  const planned = period === 7
+    ? phase.plannedSessionsPerWeek
+    : period === 30
+      ? phase.plannedSessionsPerWeek * 4
+      : period === 90
+        ? phase.plannedSessionsPerWeek * 12
+        : phase.plannedSessionsPerWeek * 48;
   const sportSplit = Array.from(bySport.entries()).map(([sport, min]) => `${sport}: ${Math.round((min / totalMin) * 100)}%`).join(" · ");
   return (
     <DetailShell title="Entraînement" period={period} onPeriodChange={setPeriod}>

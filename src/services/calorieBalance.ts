@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+const DEV = import.meta.env.DEV;
 
 const BMR = 2100; // Mifflin-St Jeor: homme, 25 ans, 193cm, 80kg
 const PARIS_TIMEZONE = "Europe/Paris";
@@ -63,7 +64,7 @@ async function fetchNativeEnergyMaps(sinceDateStr: string): Promise<{
 
     return { basalByDay, activeByDay };
   } catch (error) {
-    console.warn("[calorieBalance] native energy fetch fallback:", error);
+    if (DEV) console.warn("[calorieBalance] native energy fetch fallback:", error);
     return { basalByDay: {}, activeByDay: {} };
   }
 }
@@ -138,14 +139,14 @@ export async function computeAndSaveCalorieBalance(
       .from("health_metrics")
       .delete()
       .in("id", staleBalanceIds);
-    if (deleteError) console.error("[calorieBalance] stale delete error:", deleteError);
+    if (DEV && deleteError) console.error("[calorieBalance] stale delete error:", deleteError);
   }
 
   if (balanceRows.length > 0) {
     const { error } = await supabase
       .from("health_metrics")
       .upsert(balanceRows, { onConflict: "user_id,metric_type,date" });
-    if (error) console.error("[calorieBalance] upsert error:", error);
+    if (DEV && error) console.error("[calorieBalance] upsert error:", error);
   }
 
   // 7. Debug détaillé (temporaire)
@@ -155,7 +156,7 @@ export async function computeAndSaveCalorieBalance(
     const sport = Math.round(activeByDay[date] ?? (actCalByDay[date] ?? 0));
     const smr = Math.round(basalByDay[date] ?? BMR);
     const result = food > 0 ? Math.round(food - (smr + sport)) : null;
-    console.log("[calorieBalance][debug]", {
+    if (DEV) console.log("[calorieBalance][debug]", {
       date,
       smr,
       sport,
@@ -166,7 +167,7 @@ export async function computeAndSaveCalorieBalance(
     });
   }
 
-  console.log("[calorieBalance] ✓ Balance calculée pour", balanceRows.length, "jours");
+  if (DEV) console.log("[calorieBalance] ✓ Balance calculée pour", balanceRows.length, "jours");
 
   return balanceRows.length;
 }

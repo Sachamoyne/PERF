@@ -87,7 +87,7 @@ export function WorkoutTodayCard({ date, detailPath }: { date?: string; detailPa
     <div className="glass-card p-4 flex flex-col gap-2" style={{ minHeight: "180px" }}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 dashboard-card-title">
           <Timer className="h-3.5 w-3.5" />
           <button
             type="button"
@@ -111,13 +111,13 @@ export function WorkoutTodayCard({ date, detailPath }: { date?: string; detailPa
           <span className="text-xl font-display font-bold text-muted-foreground">—</span>
         ) : workouts.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-1 text-center">
-            <span className="text-2xl font-display font-bold" style={{ color: "hsl(152, 60%, 48%)" }}>0</span>
+            <span className="dashboard-card-value font-display" style={{ color: "hsl(var(--primary))" }}>0</span>
             <span className="text-[10px] text-muted-foreground">{date ? "min sur la date" : "min aujourd'hui"}</span>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             <div>
-              <span className="text-2xl font-display font-bold" style={{ color: "hsl(152, 60%, 48%)" }}>
+              <span className="dashboard-card-value font-display" style={{ color: "hsl(var(--primary))" }}>
                 {formatDuration(totalSec)}
               </span>
               {mode === "latest" && (

@@ -110,10 +110,11 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
 
   const calories = data?.calories ?? 0;
   const protein = data?.protein ?? 0;
-  const caloriesTarget = phase.calories;
-  const proteinTarget = phase.protein;
-  const carbsTarget = phase.carbs;
-  const fatTarget = phase.fat;
+  const caloriesTarget = phase.calories ?? 0;
+  const proteinTarget = phase.protein ?? 0;
+  const carbsTarget = phase.carbs ?? 0;
+  const fatTarget = phase.fat ?? 0;
+  const hasTargets = phase.calories != null && phase.protein != null && phase.carbs != null && phase.fat != null;
   const remaining = Math.max(caloriesTarget - calories, 0);
 
   const donutData = [
@@ -125,7 +126,7 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
     <div className="glass-card p-4 flex flex-col gap-2" style={{ minHeight: "180px" }}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 dashboard-card-title">
           <Flame className="h-3.5 w-3.5" />
           <button
             type="button"
@@ -234,13 +235,13 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
                 strokeWidth={0}
                 isAnimationActive={false}
               >
-                <Cell fill="hsl(25, 95%, 53%)" />
-                <Cell fill="hsl(220, 14%, 18%)" />
+                <Cell fill="hsl(var(--primary))" />
+                <Cell fill="hsl(var(--secondary))" />
               </Pie>
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-sm font-bold font-display" style={{ color: "hsl(25, 95%, 53%)" }}>
+            <span className="text-lg font-bold font-display" style={{ color: "hsl(var(--primary))" }}>
               {isLoading ? "—" : calories.toLocaleString()}
             </span>
             <span className="text-[9px] text-muted-foreground">kcal</span>
@@ -257,15 +258,15 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
                 <span className="text-muted-foreground font-medium">P</span>
                 <span className="text-foreground font-medium">
                   {isLoading ? "—" : protein}
-                  <span className="text-muted-foreground">/{proteinTarget}g</span>
+                  <span className="text-muted-foreground">/{hasTargets ? proteinTarget : "—"}g</span>
                 </span>
               </div>
               <div className="h-1 rounded-full bg-secondary overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
-                    width: `${Math.min(((protein ?? 0) / proteinTarget) * 100, 100)}%`,
-                    backgroundColor: "hsl(217, 91%, 60%)",
+                    width: `${hasTargets && proteinTarget > 0 ? Math.min(((protein ?? 0) / proteinTarget) * 100, 100) : 0}%`,
+                    backgroundColor: "hsl(var(--primary))",
                   }}
                 />
               </div>
@@ -277,15 +278,15 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
                 <span className="text-muted-foreground font-medium">G</span>
                 <span className="text-foreground font-medium">
                   {isLoading ? "—" : (data?.carbs ?? 0)}
-                  <span className="text-muted-foreground">/{carbsTarget}g</span>
+                  <span className="text-muted-foreground">/{hasTargets ? carbsTarget : "—"}g</span>
                 </span>
               </div>
               <div className="h-1 rounded-full bg-secondary overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
-                    width: `${Math.min(((data?.carbs ?? 0) / carbsTarget) * 100, 100)}%`,
-                    backgroundColor: "hsl(38, 92%, 50%)",
+                    width: `${hasTargets && carbsTarget > 0 ? Math.min(((data?.carbs ?? 0) / carbsTarget) * 100, 100) : 0}%`,
+                    backgroundColor: "hsl(var(--warning))",
                   }}
                 />
               </div>
@@ -297,15 +298,15 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
                 <span className="text-muted-foreground font-medium">L</span>
                 <span className="text-foreground font-medium">
                   {isLoading ? "—" : (data?.fat ?? 0)}
-                  <span className="text-muted-foreground">/{fatTarget}g</span>
+                  <span className="text-muted-foreground">/{hasTargets ? fatTarget : "—"}g</span>
                 </span>
               </div>
               <div className="h-1 rounded-full bg-secondary overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{
-                    width: `${Math.min(((data?.fat ?? 0) / fatTarget) * 100, 100)}%`,
-                    backgroundColor: "hsl(152, 60%, 48%)",
+                    width: `${hasTargets && fatTarget > 0 ? Math.min(((data?.fat ?? 0) / fatTarget) * 100, 100) : 0}%`,
+                    backgroundColor: "hsl(var(--primary))",
                   }}
                 />
               </div>
@@ -314,11 +315,11 @@ export function CaloriesCard({ date, detailPath }: { date?: string; detailPath?:
 
           {/* Calories restantes */}
           <div className="text-[10px] text-muted-foreground mt-1">
-            {isLoading ? "" : `${remaining > 0 ? remaining.toLocaleString() + " restantes" : "Objectif atteint ✓"}`}
+            {isLoading ? "" : hasTargets ? `${remaining > 0 ? remaining.toLocaleString() + " restantes" : "Objectif atteint ✓"}` : "Complète ton profil"}
           </div>
 
           <div className="text-[9px] text-muted-foreground">
-            Objectif : {caloriesTarget.toLocaleString()} kcal
+            Objectif : {hasTargets ? `${caloriesTarget.toLocaleString()} kcal` : "—"}
           </div>
         </div>
       </div>

@@ -144,14 +144,14 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
   const color = latestValue === null
     ? "hsl(var(--muted-foreground))"
     : latestValue >= 0
-      ? "hsl(152, 60%, 48%)"
-      : "hsl(25, 95%, 53%)";
+      ? "hsl(var(--primary))"
+      : "hsl(var(--warning))";
 
   return (
     <div className="glass-card p-4 flex flex-col gap-2" style={{ minHeight: "180px" }}>
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 dashboard-card-title">
           <Scale className="h-3.5 w-3.5" />
           <button
             type="button"
@@ -169,7 +169,7 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
 
       {/* Valeur du jour */}
       <div className="flex items-baseline gap-1">
-        <span className="text-xl font-display font-bold" style={{ color }}>
+        <span className="dashboard-card-value font-display" style={{ color }}>
           {isLoading ? "—" : latestValue !== null ? (latestValue > 0 ? `+${latestValue}` : latestValue) : "—"}
         </span>
         {latestValue !== null && (
@@ -202,10 +202,10 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
+                  backgroundColor: "hsl(var(--popover))",
+                  border: "1px solid hsl(var(--primary) / 0.45)",
                   borderRadius: "6px",
-                  fontSize: "11px",
+                  fontSize: "12px",
                   color: "hsl(var(--foreground))",
                 }}
                 formatter={(v: number) => [`${v > 0 ? "+" : ""}${v} kcal`, "Balance"]}
@@ -221,7 +221,7 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
                   return (
                     <Cell
                       key={entry.date}
-                      fill={selected ? "hsl(217, 91%, 60%)" : (entry.value ?? 0) >= 0 ? "hsl(152, 60%, 48%)" : "hsl(25, 95%, 53%)"}
+                      fill={selected ? "hsl(var(--primary))" : (entry.value ?? 0) >= 0 ? "hsl(var(--primary))" : "hsl(var(--warning))"}
                     />
                   );
                 })}

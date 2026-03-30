@@ -140,7 +140,7 @@ export function AppleHealthOnboarding() {
             <p className="text-xs text-muted-foreground">
               Merci d'activer l'accès dans{" "}
               <strong className="text-foreground">
-                Réglages &gt; Santé &gt; Accès aux données &gt; PERF
+                Réglages &gt; Santé &gt; Accès aux données &gt; Mova
               </strong>
               , puis reviens ici et réessaie.
             </p>

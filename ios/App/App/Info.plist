@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>PERF</string>
+	<string>Mova</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>$(PRODUCT_NAME)</string>
+	<string>Mova</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -25,9 +25,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>PERF accède à vos données Apple Santé pour calculer votre score de forme et suivre votre progression : fréquence cardiaque (HRV, FC repos), poids, masse grasse, sommeil (profond, léger, REM), séances sportives (course, tennis, padel, musculation), pas, calories et nutrition (protéines, glucides, lipides, calories alimentaires). Aucune donnée n'est partagée en dehors de votre compte.</string>
+	<string>Mova accède à tes données Apple Santé pour suivre ta forme physique, ton sommeil, ta nutrition et tes entraînements.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>PERF peut enregistrer vos données d'entraînement dans Apple Santé.</string>
+	<string>Mova peut écrire des données dans Apple Santé.</string>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Mova utilise les notifications pour te rappeler de saisir tes données quotidiennes si tu actives ce rappel.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -39,15 +41,14 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>

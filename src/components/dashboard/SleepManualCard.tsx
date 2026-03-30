@@ -22,8 +22,8 @@ import { useInsertSleepLog } from "@/hooks/useSleepLogs";
 import { usePersistedChartPeriod } from "@/hooks/usePersistedChartPeriod";
 import { supabase } from "@/integrations/supabase/client";
 
-const SLEEP_COLOR = "hsl(217, 91%, 60%)";
-const SCORE_COLOR = "hsl(152, 60%, 48%)";
+const SLEEP_COLOR = "hsl(var(--primary))";
+const SCORE_COLOR = "hsl(var(--warning))";
 
 const PERIODS = [
   { label: "7j",  days: 7   },
@@ -189,19 +189,19 @@ export function SleepManualCard({ date, detailPath }: { date?: string; detailPat
   };
 
   const tooltipStyle = {
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
+    backgroundColor: "hsl(var(--popover))",
+    border: "1px solid hsl(var(--primary) / 0.45)",
     borderRadius: "8px",
-    fontSize: "11px",
+    fontSize: "12px",
     padding: "6px 10px",
   };
   const axisStyle = { fontSize: 9, fill: "hsl(var(--muted-foreground))" };
 
   return (
-    <div className="glass-card p-3 flex flex-col gap-2" style={{ minHeight: "220px" }}>
+    <div className="glass-card p-4 flex flex-col gap-2" style={{ minHeight: "220px" }}>
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
+        <div className="flex items-center gap-1.5 dashboard-card-title">
           <Moon className="h-4 w-4" />
           <button
             type="button"
@@ -268,7 +268,7 @@ export function SleepManualCard({ date, detailPath }: { date?: string; detailPat
       {/* Valeur + snapshot */}
       <div className="flex items-center justify-between">
         <div>
-          <span className="text-2xl font-display font-bold" style={{ color: SLEEP_COLOR }}>
+          <span className="dashboard-card-value font-display" style={{ color: SLEEP_COLOR }}>
             {latest ? formatDuration(latest.duration_hours) : "—"}
           </span>
           {latest?.bedtime && latest?.wake_time && (
@@ -364,13 +364,13 @@ export function SleepManualCard({ date, detailPath }: { date?: string; detailPat
             Score
           </span>
         </div>
-        <div className="flex gap-0.5">
+        <div className="flex gap-1">
           {PERIODS.map((p, idx) => (
             <button
               key={p.label}
               onClick={() => setPeriodIdx(idx)}
-              className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium transition-colors ${
-                idx === periodIdx ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+              className={`period-pill ${
+                idx === periodIdx ? "period-pill-active" : ""
               }`}
             >
               {p.label}

@@ -197,10 +197,10 @@ export function ManualMetricCard({
   const yWidth = Math.max(28, maxDigits * 7 + 8);
 
   const tooltipStyle = {
-    backgroundColor: "hsl(var(--card))",
-    border: "1px solid hsl(var(--border))",
+    backgroundColor: "hsl(var(--popover))",
+    border: "1px solid hsl(var(--primary) / 0.45)",
     borderRadius: "8px",
-    fontSize: "11px",
+    fontSize: "12px",
     padding: "6px 10px",
   };
   const axisStyle = { fontSize: 9, fill: "hsl(var(--muted-foreground))" };
@@ -213,10 +213,10 @@ export function ManualMetricCard({
   const activePointDot = useMemo(() => ({ r: isAllPeriod ? 6 : 4, fill: color, strokeWidth: 0 }), [isAllPeriod, color]);
 
   return (
-    <div className="glass-card p-3 flex flex-col gap-2" style={{ minHeight: "220px" }}>
+    <div className="glass-card p-4 flex flex-col gap-2" style={{ minHeight: "220px" }}>
       {/* Header */}
       <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1.5 text-muted-foreground text-xs min-w-0">
+        <div className="flex items-center gap-1.5 dashboard-card-title min-w-0">
           <span className="shrink-0">{icon}</span>
           <button
             type="button"
@@ -270,7 +270,7 @@ export function ManualMetricCard({
 
       {/* Valeur */}
       <div>
-        <span className="text-2xl font-display font-bold leading-none" style={{ color }}>
+        <span className="dashboard-card-value font-display" style={{ color }}>
           {displayValue}
         </span>
         {displayValue !== "—" && (
@@ -336,13 +336,13 @@ export function ManualMetricCard({
       </div>
 
       {/* Sélecteur période */}
-      <div className="flex gap-0.5">
+      <div className="flex gap-1">
         {PERIODS_WITH_ALL.map((p, idx) => (
           <button
             key={p.label}
             onClick={() => setPeriodIdx(idx)}
-            className={`text-[9px] px-1.5 py-0.5 rounded-sm font-medium transition-colors ${
-              idx === periodIdx ? "bg-primary/20 text-primary" : "text-muted-foreground hover:text-foreground"
+            className={`period-pill ${
+              idx === periodIdx ? "period-pill-active" : ""
             }`}
           >
             {p.label}

@@ -132,11 +132,11 @@ export function CentralManualEntryFab({ date }: { date: string }) {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[70]">
+    <div className="fixed right-6 z-[70] bottom-[calc(80px+env(safe-area-inset-bottom,0px))] md:bottom-6">
       <Drawer open={open} onOpenChange={setOpen}>
         <DrawerTrigger asChild>
           <Button
-            className="h-12 px-4 rounded-full shadow-[0_10px_30px_rgba(34,197,94,0.35)] bg-primary text-primary-foreground"
+            className="h-12 px-5 rounded-full bg-primary text-[#0A0A0A] shadow-[0_4px_20px_rgba(0,230,118,0.30)] font-semibold"
             aria-label="Saisir des données"
           >
             <Pencil className="h-4 w-4 mr-2" />

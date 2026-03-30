@@ -6,7 +6,7 @@
  *   'respiratoryRate' | 'oxygenSaturation' | 'restingHeartRate' |
  *   'heartRateVariability' | 'bloodPressure' | 'bloodGlucose' |
  *   'bodyTemperature' | 'height' | 'flightsClimbed' | 'exerciseTime' |
- *   'distanceCycling' | 'bodyFat' | 'basalCalories' | 'totalCalories' |
+ *   'distanceCycling' | 'bodyFat' | 'basalCalories' |
  *   'mindfulness'
  *
  * NOTE: "workout", "activeEnergyBurned", "bodyFatPercentage", "leanBodyMass",
@@ -17,6 +17,7 @@
 
 import { Health } from "@capgo/capacitor-health";
 import type { Workout } from "@capgo/capacitor-health/dist/esm/definitions";
+const DEV = import.meta.env.DEV;
 
 export function toLocalDateStr(isoString: string): string {
   const d = new Date(isoString);
@@ -28,15 +29,15 @@ export function toLocalDateStr(isoString: string): string {
 
 // ─── Diagnostic au chargement ────────────────────────────────────────────────
 if (!Health) {
-  console.error(
+  if (DEV) console.error(
     "[health] PLUGIN_NOT_FOUND — Health est falsy au chargement du module.\n" +
     "→ Vérifier que @capgo/capacitor-health est listé dans package.json et installé.\n" +
     "→ Relancer : npm install && npx cap sync && Clean Build Folder dans Xcode."
   );
 } else {
-  console.log("[health] ✓ Health plugin chargé");
-  console.log("[health] Plugin Object Keys     :", Object.keys(Health));
-  console.log("[health] window.Capacitor.Plugins.Health :", (window as any).Capacitor?.Plugins?.Health ?? "(non encore injecté)");
+  if (DEV) console.log("[health] ✓ Health plugin chargé");
+  if (DEV) console.log("[health] Plugin Object Keys     :", Object.keys(Health));
+  if (DEV) console.log("[health] window.Capacitor.Plugins.Health :", (window as any).Capacitor?.Plugins?.Health ?? "(non encore injecté)");
 }
 
 // ─── Types locaux ─────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ function formatErrorDetails(err: unknown): Record<string, unknown> {
 
 function logHealthFetchError(context: string, err: unknown) {
   const details = formatErrorDetails(err);
-  console.warn(`[health] ${context} failed`, details);
+  if (DEV) console.warn(`[health] ${context} failed`, details);
 }
 
 function getPlatform(): "ios" | "android" | "web" {
@@ -271,16 +272,16 @@ export async function requestHealthPermissions(): Promise<HealthPermissionResult
   }
 
   try {
-    console.log("[health] → Health.isAvailable()...");
+    if (DEV) console.log("[health] → Health.isAvailable()...");
     const availability = await Health.isAvailable();
-    console.log("[health] ← isAvailable :", JSON.stringify(availability));
+    if (DEV) console.log("[health] ← isAvailable :", JSON.stringify(availability));
 
     if (!availability.available) {
       const ua = (typeof navigator !== "undefined" ? navigator.userAgent : "").toLowerCase();
       const reason = ua.includes("simulator")
         ? "Apple Santé n'est pas disponible sur le simulateur iOS. Lance l'app sur un iPhone physique."
         : "Apple Santé n'est pas disponible sur cet appareil.";
-      console.error("[health] HealthKit indisponible :", availability.reason ?? availability.platform);
+      if (DEV) console.error("[health] HealthKit indisponible :", availability.reason ?? availability.platform);
       console.groupEnd();
       return { ok: false, reason };
     }
@@ -292,7 +293,6 @@ export async function requestHealthPermissions(): Promise<HealthPermissionResult
       "sleep",
       "steps",
       "calories",
-      "totalCalories",
       "basalCalories",
       "bodyFat",
       "restingHeartRate",
@@ -301,29 +301,29 @@ export async function requestHealthPermissions(): Promise<HealthPermissionResult
       "dietaryFat",
       "dietaryEnergyConsumed",
     ];
-    console.log("[health] → Health.requestAuthorization(read):", read.join(", "));
+    if (DEV) console.log("[health] → Health.requestAuthorization(read):", read.join(", "));
     const status = await Health.requestAuthorization({ read: read as any, write: [] });
-    console.log("[health] ← requestAuthorization :", JSON.stringify(status));
+    if (DEV) console.log("[health] ← requestAuthorization :", JSON.stringify(status));
 
     const granted = status.readAuthorized ?? [];
     const denied  = status.readDenied    ?? [];
 
     if (granted.length === 0 && denied.length > 0) {
-      console.warn("[health] Tous les types refusés explicitement");
+      if (DEV) console.warn("[health] Tous les types refusés explicitement");
       console.groupEnd();
       return {
         ok: false,
-        reason: "Accès Apple Santé refusé. Va dans Réglages > Santé > Accès des apps > PERF pour autoriser.",
+        reason: "Accès Apple Santé refusé. Va dans Réglages > Santé > Accès des apps > Mova pour autoriser.",
       };
     }
 
     // Si notDetermined ou partiellement granted → continuer quand même
-    console.log("[health] Continuer malgré granted partiel:", granted, "denied:", denied);
+    if (DEV) console.log("[health] Continuer malgré granted partiel:", granted, "denied:", denied);
     console.groupEnd();
     return { ok: true, granted, deniedTypes: denied };
 
   } catch (err) {
-    console.error("[health] Exception requestHealthPermissions :", err);
+    if (DEV) console.error("[health] Exception requestHealthPermissions :", err);
     console.groupEnd();
     return {
       ok: false,
@@ -412,7 +412,7 @@ async function fetchDailySteps(days: number): Promise<HealthSample[]> {
         unit:  "count",
       }))
       .filter((s: HealthSample) => Number.isFinite(s.value) && s.value > 0);
-    console.log(`[health] fetchDailySteps: ${samples.length} jours`);
+    if (DEV) console.log(`[health] fetchDailySteps: ${samples.length} jours`);
     return samples;
   } catch (err) {
     logHealthFetchError("queryAggregated(steps)", err);
@@ -447,7 +447,7 @@ async function fetchDailyCalories(days: number): Promise<HealthSample[]> {
     const today = toLocalDateStr(new Date().toISOString());
     const todayTotal = byDay.find((s) => s.date === today)?.value ?? 0;
     const rawUnits = Array.from(new Set((result.samples ?? []).map((s: any) => String(s.unit ?? "unknown"))));
-    console.log("[health] fetchDailyCalories(dietaryEnergyConsumed):", {
+    if (DEV) console.log("[health] fetchDailyCalories(dietaryEnergyConsumed):", {
       rawSamples: samples.length,
       aggregatedDays: byDay.length,
       rawUnits,
@@ -481,7 +481,7 @@ async function fetchDietaryProtein(days: number): Promise<HealthSample[]> {
       .filter((s: HealthSample) => s.value > 0);
 
     const byDay = groupByDaySum(samples).map((s) => ({ ...s, unit: "g" }));
-    console.log("[health] fetchDietaryProtein:", { rawSamples: samples.length, aggregatedDays: byDay.length });
+    if (DEV) console.log("[health] fetchDietaryProtein:", { rawSamples: samples.length, aggregatedDays: byDay.length });
     return byDay;
   } catch (err) {
     logHealthFetchError("readSamples(dietaryProtein)", err);
@@ -509,7 +509,7 @@ async function fetchDietaryCarbohydrates(days: number): Promise<HealthSample[]> 
       .filter((s: HealthSample) => s.value > 0);
 
     const byDay = groupByDaySum(samples).map((s) => ({ ...s, unit: "g" }));
-    console.log("[health] fetchDietaryCarbohydrates:", { rawSamples: samples.length, aggregatedDays: byDay.length });
+    if (DEV) console.log("[health] fetchDietaryCarbohydrates:", { rawSamples: samples.length, aggregatedDays: byDay.length });
     return byDay;
   } catch (err) {
     logHealthFetchError("readSamples(dietaryCarbohydrates)", err);
@@ -537,7 +537,7 @@ async function fetchDietaryFat(days: number): Promise<HealthSample[]> {
       .filter((s: HealthSample) => s.value > 0);
 
     const byDay = groupByDaySum(samples).map((s) => ({ ...s, unit: "g" }));
-    console.log("[health] fetchDietaryFat:", { rawSamples: samples.length, aggregatedDays: byDay.length });
+    if (DEV) console.log("[health] fetchDietaryFat:", { rawSamples: samples.length, aggregatedDays: byDay.length });
     return byDay;
   } catch (err) {
     logHealthFetchError("readSamples(dietaryFat)", err);
@@ -574,7 +574,7 @@ async function fetchBodyFat(days: number): Promise<HealthSample[]> {
         };
       })
       .filter((s: HealthSample) => Number.isFinite(s.value) && s.value > 0);
-    console.log(`[health] fetchBodyFat: ${samples.length} échantillons bruts`);
+    if (DEV) console.log(`[health] fetchBodyFat: ${samples.length} échantillons bruts`);
     return groupByDayAverage(samples);
   } catch (err) {
     logHealthFetchError("readSamples(bodyFat)", err);
@@ -592,7 +592,7 @@ async function fetchNativeWorkouts(days: number): Promise<WorkoutData[]> {
       ascending: true,
     });
     const types = Array.from(new Set((result.workouts ?? []).map((w) => w.workoutType))).slice(0, 20);
-    console.log("[health] queryWorkouts types (sample):", types);
+    if (DEV) console.log("[health] queryWorkouts types (sample):", types);
     const workouts = result.workouts ?? [];
     let mapped = 0;
     let unmapped = 0;
@@ -634,11 +634,11 @@ async function fetchNativeWorkouts(days: number): Promise<WorkoutData[]> {
     }
 
     if (unmapped > 0) {
-      console.warn("[health] queryWorkouts unmapped workouts:", { unmapped, mapped, total: workouts.length });
+      if (DEV) console.warn("[health] queryWorkouts unmapped workouts:", { unmapped, mapped, total: workouts.length });
     } else {
-      console.log("[health] queryWorkouts mapped workouts:", { mapped, total: workouts.length });
+      if (DEV) console.log("[health] queryWorkouts mapped workouts:", { mapped, total: workouts.length });
     }
-    console.log("[health] queryWorkouts energy source:", {
+    if (DEV) console.log("[health] queryWorkouts energy source:", {
       activeEnergyCount,
       totalEnergyFallbackCount,
     });
@@ -704,7 +704,7 @@ async function fetchNativeHealthData(days: number): Promise<HealthSnapshot> {
     fat:           fat.status           === "fulfilled" ? fat.value           : [],
   };
 
-  console.log("[health] ✓ Snapshot :", {
+  if (DEV) console.log("[health] ✓ Snapshot :", {
     hrv:           snapshot.hrv.length,
     weight:        snapshot.weight.length,
     restingHR:     snapshot.restingHR.length,

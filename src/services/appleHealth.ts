@@ -4,6 +4,7 @@ import type { HealthSample, SleepSample } from "./health";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { computeAndSaveCalorieBalance } from "@/services/calorieBalance";
+const DEV = import.meta.env.DEV;
 
 export interface DiagnosticReport {
   permissions: {
@@ -138,13 +139,13 @@ function computeSleepScores(
  *   activities     : workouts (running, cycling, swimming, tennis, padel, strength)
  */
 export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncResult> {
-  console.info("[appleHealth] Starting sync for user", userId);
+  if (DEV) console.info("[appleHealth] Starting sync for user", userId);
   const platform = (() => {
     try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; }
     catch { return "web"; }
   })();
   if (platform !== "ios" && platform !== "android") {
-    console.info("[appleHealth] Sync ignoré sur browser — platform:", platform);
+    if (DEV) console.info("[appleHealth] Sync ignoré sur browser — platform:", platform);
     return {
       importedSamples: 0,
       importedHrv: 0,
@@ -196,17 +197,17 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   if (!permissions.ok) {
     throw new Error(permissions.reason ?? "Autorisation HealthKit refusée.");
   }
-  console.info("[appleHealth] Permissions granted:", permissions.granted ?? []);
+  if (DEV) console.info("[appleHealth] Permissions granted:", permissions.granted ?? []);
   if (permissions.deniedTypes?.length) {
-    console.info("[appleHealth] Permissions denied:", permissions.deniedTypes);
+    if (DEV) console.info("[appleHealth] Permissions denied:", permissions.deniedTypes);
   }
 
   // ── Étape 1b : Diagnostic pré-sync ───────────────────────────────────────
-  console.group("[appleHealth] ── ÉTAPE 1b : Diagnostic ──");
+  if (DEV) console.group("[appleHealth] ── ÉTAPE 1b : Diagnostic ──");
 
   const DIAG_TYPES = [
     "heartRateVariability", "weight", "sleep",
-    "steps", "calories", "totalCalories", "basalCalories",
+    "steps", "calories", "basalCalories",
     "bodyFat", "restingHeartRate",
     "dietaryProtein", "dietaryCarbohydrates", "dietaryFat", "dietaryEnergyConsumed",
   ];
@@ -219,9 +220,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
       readAuthorized: res.readAuthorized ?? [],
       readDenied:     res.readDenied     ?? [],
     };
-    console.log("[appleHealth][diag] checkAuthorization →", authCheck);
+    if (DEV) console.log("[appleHealth][diag] checkAuthorization →", authCheck);
   } catch (err) {
-    console.warn("[appleHealth][diag] checkAuthorization non disponible :", err);
+    if (DEV) console.warn("[appleHealth][diag] checkAuthorization non disponible :", err);
   }
 
   // 2. queryAggregated de test (7 derniers jours)
@@ -233,10 +234,10 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
         dataType, startDate: start, endDate: end, bucket: "day", aggregation: "sum",
       });
       const count = (result.samples ?? []).length;
-      console.log(`[appleHealth][diag] queryAggregated(${dataType}) → ${count} jours`);
+      if (DEV) console.log(`[appleHealth][diag] queryAggregated(${dataType}) → ${count} jours`);
       return count;
     } catch (err) {
-      console.warn(`[appleHealth][diag] queryAggregated(${dataType}) échoué :`, err);
+      if (DEV) console.warn(`[appleHealth][diag] queryAggregated(${dataType}) échoué :`, err);
       return -1;
     }
   };
@@ -250,10 +251,10 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
         dataType, startDate: start, endDate: end, limit, ascending: true,
       });
       const count = (result.samples ?? []).length;
-      console.log(`[appleHealth][diag] readSamples(${dataType}, limit=${limit}) → ${count} samples`);
+      if (DEV) console.log(`[appleHealth][diag] readSamples(${dataType}, limit=${limit}) → ${count} samples`);
       return count;
     } catch (err) {
-      console.warn(`[appleHealth][diag] readSamples(${dataType}) échoué :`, err);
+      if (DEV) console.warn(`[appleHealth][diag] readSamples(${dataType}) échoué :`, err);
       return -1;
     }
   };
@@ -280,12 +281,12 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     },
   };
 
-  console.log("[appleHealth][diag] ═══ RAPPORT DIAGNOSTIC ═══", diagnosticReport);
-  console.groupEnd();
+  if (DEV) console.log("[appleHealth][diag] ═══ RAPPORT DIAGNOSTIC ═══", diagnosticReport);
+  if (DEV) console.groupEnd();
 
   // ── Étape 2 : Récupération des données ───────────────────────────────────
   const snapshot = await fetchHealthData(daysSinceJan1);
-  console.info("[appleHealth] Raw samples fetched", {
+  if (DEV) console.info("[appleHealth] Raw samples fetched", {
     hrv:           snapshot.hrv.length,
     weight:        snapshot.weight.length,
     restingHR:     snapshot.restingHR.length,
@@ -336,9 +337,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     const { error } = await supabase
       .from("health_metrics")
       .upsert(rows, { onConflict: "user_id,metric_type,date" });
-    if (error) console.error("[appleHealth] HRV upsert error:", error);
+    if (DEV && error) console.error("[appleHealth] HRV upsert error:", error);
     else importedHrv = rows.length;
-    console.log("[appleHealth] ✓ HRV :", importedHrv);
+    if (DEV) console.log("[appleHealth] ✓ HRV :", importedHrv);
   }
 
   // ── Étape 4b : Resting HR → health_metrics ───────────────────────────────
@@ -353,9 +354,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     const { error } = await supabase
       .from("health_metrics")
       .upsert(rows, { onConflict: "user_id,metric_type,date" });
-    if (error) console.error("[appleHealth] RHR upsert error:", error);
+    if (DEV && error) console.error("[appleHealth] RHR upsert error:", error);
     else importedRhr = rows.length;
-    console.log("[appleHealth] ✓ RHR :", importedRhr);
+    if (DEV) console.log("[appleHealth] ✓ RHR :", importedRhr);
   }
 
   // ── Étape 4c : Sleep Score → health_metrics ──────────────────────────────
@@ -370,9 +371,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     const { error } = await supabase
       .from("health_metrics")
       .upsert(rows, { onConflict: "user_id,metric_type,date" });
-    if (error) console.error("[appleHealth] sleep_score upsert error:", error);
+    if (DEV && error) console.error("[appleHealth] sleep_score upsert error:", error);
     else importedSleepScore = rows.length;
-    console.log("[appleHealth] ✓ Sleep score :", importedSleepScore);
+    if (DEV) console.log("[appleHealth] ✓ Sleep score :", importedSleepScore);
   }
 
   // ── Étape 4d : Steps → health_metrics ────────────────────────────────────
@@ -387,9 +388,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     const { error } = await supabase
       .from("health_metrics")
       .upsert(rows, { onConflict: "user_id,metric_type,date" });
-    if (error) console.error("[appleHealth] steps insert error:", error);
+    if (DEV && error) console.error("[appleHealth] steps insert error:", error);
     else importedSteps = rows.length;
-    console.log("[appleHealth] ✓ Steps :", importedSteps);
+    if (DEV) console.log("[appleHealth] ✓ Steps :", importedSteps);
   }
 
   // ── Étape 4e : Calories totales → health_metrics ─────────────────────────
@@ -397,7 +398,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     const caloriesByDay = groupByDaySum(snapshot.caloriesTotal).map((s) => ({ ...s, unit: "kcal" }));
     const today = toLocalDateStr(new Date().toISOString());
     const todayCalories = caloriesByDay.find((s) => s.date === today)?.value ?? 0;
-    console.log("[appleHealth] dietaryEnergyConsumed agrégé avant upsert:", {
+    if (DEV) console.log("[appleHealth] dietaryEnergyConsumed agrégé avant upsert:", {
       rawSamples: snapshot.caloriesTotal.length,
       aggregatedDays: caloriesByDay.length,
       today,
@@ -414,9 +415,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
     const { error } = await supabase
       .from("health_metrics")
       .upsert(rows, { onConflict: "user_id,metric_type,date" });
-    if (error) console.error("[appleHealth] calories_total upsert error:", { error, rows: rows.length, rawSamples: snapshot.caloriesTotal.length });
+    if (DEV && error) console.error("[appleHealth] calories_total upsert error:", { error, rows: rows.length, rawSamples: snapshot.caloriesTotal.length });
     else importedCalories = rows.length;
-    console.log("[appleHealth] ✓ Calories alimentaires :", importedCalories);
+    if (DEV) console.log("[appleHealth] ✓ Calories alimentaires :", importedCalories);
   }
 
   // ── Étape 4f : Protéines → health_metrics ────────────────────────────────

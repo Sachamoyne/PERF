@@ -1,13 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
-import { AppleHealthOnboarding } from "@/components/health/AppleHealthOnboarding";
+import { BottomTabBar } from "./BottomTabBar";
 import { useAuth } from "@/hooks/useAuth";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { syncAppleHealth } from "@/services/appleHealth";
 import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 function useAutoSync() {
   const { user } = useAuth();
@@ -40,15 +41,26 @@ function useAutoSync() {
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   useAutoSync();
+  const isMobile = useIsMobile();
 
   return (
-    <SidebarProvider className="flex h-screen w-full overflow-hidden">
-      <AppSidebar />
+    <SidebarProvider
+      className="flex h-screen w-full overflow-hidden"
+      style={
+        {
+          "--sidebar-width": "220px",
+          "--sidebar-width-icon": "56px",
+        } as CSSProperties
+      }
+    >
+      {!isMobile ? <AppSidebar /> : null}
       <div className="flex-1 flex flex-col overflow-hidden" style={{ paddingBottom: "var(--sab, 0px)" }}>
         <AppHeader />
-        <main className="flex-1 overflow-y-auto p-6 bg-background">{children}</main>
+        <main className={`flex-1 overflow-y-auto bg-background ${isMobile ? "p-4 pb-[calc(80px+env(safe-area-inset-bottom,0px))]" : "p-6"}`}>
+          {children}
+        </main>
       </div>
-      <AppleHealthOnboarding />
+      {isMobile ? <BottomTabBar /> : null}
     </SidebarProvider>
   );
 }

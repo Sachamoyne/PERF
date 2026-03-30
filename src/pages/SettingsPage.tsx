@@ -3,50 +3,50 @@ import { supabase } from "@/integrations/supabase/client";
 import { TRAINING_PHASES, type TrainingPhaseKey, useActivePhase } from "@/hooks/useActivePhase";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Copy, Key, RefreshCw, CheckCircle2, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Link } from "react-router-dom";
+import { useTheme } from "@/hooks/useTheme";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   getManualEntryReminderSettings,
   saveManualEntryReminderSettings,
   syncManualEntryReminderSchedule,
 } from "@/services/manualEntryReminder";
 
-function generateApiKey(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let key = "ahk_";
-  for (let i = 0; i < 32; i++) key += chars.charAt(Math.floor(Math.random() * chars.length));
-  return key;
-}
-
 export default function SettingsPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [apiKeyLoading, setApiKeyLoading] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
   const [mockLoading, setMockLoading] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(true);
   const [reminderTime, setReminderTime] = useState("08:00");
   const [savingReminder, setSavingReminder] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
+  const [confirmText, setConfirmText] = useState("");
+  const [confirmAction, setConfirmAction] = useState<"reset" | "delete">("reset");
+  const { isDark, setTheme } = useTheme();
   const queryClient = useQueryClient();
-  const isDev = import.meta.env.DEV;
-  const { activePhaseKey, phase, phaseStartedAt, setActivePhase, isSaving: isSavingPhase } = useActivePhase();
+  const {
+    activePhaseKey,
+    phase,
+    phaseStartedAt,
+    goalsByPhase,
+    setActivePhase,
+    isSaving: isSavingPhase,
+  } = useActivePhase();
 
-  const fetchApiKey = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("api_key")
-      .eq("user_id", user.id)
-      .single();
-    setApiKey((data as { api_key: string | null } | null)?.api_key ?? null);
-  }, [user]);
-
-  useEffect(() => { fetchApiKey(); }, [fetchApiKey]);
   useEffect(() => {
     const settings = getManualEntryReminderSettings();
     setReminderEnabled(settings.enabled);
@@ -66,26 +66,6 @@ export default function SettingsPage() {
     setSavingReminder(false);
   };
 
-  const handleGenerateKey = async () => {
-    if (!user) return;
-    setApiKeyLoading(true);
-    const newKey = generateApiKey();
-    const { error } = await supabase
-      .from("profiles")
-      .update({ api_key: newKey } as Record<string, unknown>)
-      .eq("user_id", user.id);
-    if (error) toast.error(error.message);
-    else { setApiKey(newKey); toast.success("Clé API générée !"); }
-    setApiKeyLoading(false);
-  };
-
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    toast.success(`${label} copié !`);
-    setTimeout(() => setCopied(null), 2000);
-  };
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     toast.success("Déconnecté");
@@ -103,22 +83,113 @@ export default function SettingsPage() {
 
   const startedLabel = new Date(phaseStartedAt).toLocaleDateString("fr-FR");
 
+  const closeConfirmModal = () => {
+    setConfirmModalOpen(false);
+    setConfirmStep(1);
+    setConfirmText("");
+  };
+
+  const openConfirmModal = (action: "reset" | "delete") => {
+    setConfirmAction(action);
+    setConfirmStep(1);
+    setConfirmText("");
+    setConfirmModalOpen(true);
+  };
+
+  const handleResetAllData = async () => {
+    if (!user) return;
+    setMockLoading(true);
+    try {
+      const { error } = await supabase.rpc("clear_user_data", { _user_id: user.id });
+      if (error) throw error;
+      queryClient.invalidateQueries();
+      toast.success("Toutes les données ont été supprimées");
+      closeConfirmModal();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la suppression");
+    }
+    setMockLoading(false);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { error: deleteError } = await supabase.rpc("delete_user_account", { _user_id: user.id });
+      if (deleteError) throw deleteError;
+
+      await supabase.auth.signOut();
+      queryClient.clear();
+      toast.success("Ton compte Mova et tes données ont été supprimés.");
+      closeConfirmModal();
+    } catch (e: any) {
+      toast.error(e.message || "Erreur lors de la suppression du compte");
+    }
+    setLoading(false);
+  };
+
   return (
-    <div className="space-y-8 max-w-lg">
+    <div className="w-full space-y-8">
       <h1 className="text-2xl font-display font-bold text-foreground">Paramètres</h1>
 
-      <div className="rounded-xl border border-border p-4 space-y-1 mb-4">
-        <p className="text-xs text-muted-foreground">Compte connecté</p>
-        <p className="text-sm font-medium">{user?.email ?? "—"}</p>
-        <p className="text-[10px] text-muted-foreground font-mono break-all">
-          ID: {user?.id ?? "—"}
-        </p>
+      <div className="glass-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Mon profil</h2>
+        <Link to="/onboarding?mode=edit" className="text-sm text-primary hover:underline">
+          Modifier mon profil →
+        </Link>
       </div>
 
       <div className="glass-card p-6 space-y-4">
-        <p className="text-sm text-muted-foreground">Connecté en tant que</p>
-        <p className="text-foreground font-medium">{user?.email}</p>
-        <Button variant="outline" onClick={handleSignOut}>Se déconnecter</Button>
+        <h2 className="text-lg font-semibold text-foreground">Phase d'entraînement</h2>
+        <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${phase.accentClass}`}>
+          {phase.label}
+        </div>
+        <p className="text-xs text-muted-foreground">Actif depuis le {startedLabel}</p>
+
+        <div className="grid grid-cols-1 gap-2">
+          {(Object.values(TRAINING_PHASES) as Array<(typeof TRAINING_PHASES)[TrainingPhaseKey]>).map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              onClick={() => handleSelectPhase(p.key)}
+              disabled={isSavingPhase}
+              className={`rounded-lg border p-3 text-left transition-colors ${
+                activePhaseKey === p.key
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-primary/40"
+              }`}
+            >
+              <p className="text-sm font-medium text-foreground">{p.label}</p>
+              {goalsByPhase?.[p.key] ? (
+                <p className="text-xs text-muted-foreground">
+                  {goalsByPhase[p.key].calories} kcal • {goalsByPhase[p.key].protein}g P • {goalsByPhase[p.key].carbs}g G • {goalsByPhase[p.key].fat}g L
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Objectifs disponibles après synchronisation du poids</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                {p.weightMonthlyMinKg === 0 && p.weightMonthlyMaxKg === 0
+                  ? "Objectif poids: stable"
+                  : `Objectif poids: ${p.weightMonthlyMinKg > 0 ? "+" : ""}${p.weightMonthlyMinKg} à ${p.weightMonthlyMaxKg > 0 ? "+" : ""}${p.weightMonthlyMaxKg} kg/mois`}
+              </p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="glass-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Apparence</h2>
+        <div className="flex items-center justify-between rounded-lg border border-border p-3">
+          <div className="space-y-0.5">
+            <p className="text-sm text-foreground font-medium">Thème sombre</p>
+            <p className="text-xs text-muted-foreground">Actif par défaut sur iOS</p>
+          </div>
+          <Switch
+            checked={isDark}
+            onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+            aria-label="Basculer thème sombre/clair"
+          />
+        </div>
       </div>
 
       <div className="glass-card p-6 space-y-4">
@@ -150,118 +221,113 @@ export default function SettingsPage() {
       </div>
 
       <div className="glass-card p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">Phase d'entraînement</h2>
-        <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${phase.accentClass}`}>
-          {phase.label}
-        </div>
-        <p className="text-xs text-muted-foreground">Actif depuis le {startedLabel}</p>
-
-        <div className="grid grid-cols-1 gap-2">
-          {(Object.values(TRAINING_PHASES) as Array<(typeof TRAINING_PHASES)[TrainingPhaseKey]>).map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              onClick={() => handleSelectPhase(p.key)}
-              disabled={isSavingPhase}
-              className={`rounded-lg border p-3 text-left transition-colors ${
-                activePhaseKey === p.key
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-primary/40"
-              }`}
-            >
-              <p className="text-sm font-medium text-foreground">{p.label}</p>
-              <p className="text-xs text-muted-foreground">
-                {p.calories} kcal • {p.protein}g P • {p.carbs}g G • {p.fat}g L
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {p.weightMonthlyMinKg === 0 && p.weightMonthlyMaxKg === 0
-                  ? "Objectif poids: stable"
-                  : `Objectif poids: ${p.weightMonthlyMinKg > 0 ? "+" : ""}${p.weightMonthlyMinKg} à ${p.weightMonthlyMaxKg > 0 ? "+" : ""}${p.weightMonthlyMaxKg} kg/mois`}
-              </p>
-            </button>
-          ))}
-        </div>
+        <h2 className="text-lg font-semibold text-foreground">Compte</h2>
+        <p className="text-sm text-muted-foreground">Connecté en tant que</p>
+        <p className="text-foreground font-medium">{user?.email}</p>
+        <Button variant="outline" onClick={handleSignOut}>Se déconnecter</Button>
       </div>
-      {/* (Section Sync iPhone & import manuel supprimées) */}
 
-      {/* Reset all data */}
-      <div className="glass-card p-6 space-y-4 border border-destructive/30">
-        <div className="flex items-center gap-2">
-          <Trash2 className="h-5 w-5 text-destructive" />
-          <h2 className="text-lg font-semibold text-foreground">Réinitialiser mes données</h2>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Supprime toutes tes activités, métriques, pesées et exercices. Ton compte et ton profil sont conservés.
-        </p>
-        <Button
-          variant="destructive"
-          onClick={async () => {
-            if (!user) return;
-            const confirmed = window.confirm("Supprimer définitivement toutes tes données ? Cette action est irréversible.");
-            if (!confirmed) return;
-            setMockLoading(true);
-            try {
-              const { error } = await supabase.rpc("clear_user_data", { _user_id: user.id });
-              if (error) throw error;
-              queryClient.invalidateQueries();
-              toast.success("Toutes les données ont été supprimées");
-            } catch (e: any) {
-              toast.error(e.message || "Erreur lors de la suppression");
-            }
-            setMockLoading(false);
-          }}
-          disabled={mockLoading}
+      <div className="glass-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Légal</h2>
+        <a
+          href="https://mova.app/privacy"
+          target="_blank"
+          rel="noreferrer"
+          className="block text-sm text-primary hover:underline"
         >
-          <Trash2 className="h-4 w-4 mr-2" />
-          {mockLoading ? "Suppression..." : "Supprimer toutes mes données"}
-        </Button>
-      </div>
-
-      {/* Delete account */}
-      <div className="glass-card p-6 space-y-4 border border-destructive/50 bg-destructive/5">
-        <div className="flex items-center gap-2">
-          <Trash2 className="h-5 w-5 text-destructive" />
-          <h2 className="text-lg font-semibold text-foreground">Supprimer mon compte</h2>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Supprime ton profil et toutes tes données de PERF-TRACK. Cette action est définitive et te déconnectera de l'application.
-        </p>
-        <Button
-          variant="destructive"
-          onClick={async () => {
-            if (!user) return;
-            const confirmed = window.confirm(
-              "Supprimer définitivement ton compte PERF-TRACK et toutes tes données associées ? Cette action est irréversible."
-            );
-            if (!confirmed) return;
-            setLoading(true);
-            try {
-              // Supprime toutes les données liées
-              const { error: clearError } = await supabase.rpc("clear_user_data", { _user_id: user.id });
-              if (clearError) throw clearError;
-
-              // Supprime le profil applicatif
-              const { error: profileError } = await supabase.from("profiles").delete().eq("user_id", user.id);
-              if (profileError) throw profileError;
-
-              // Déconnecte l'utilisateur (l'entrée auth restera côté Supabase, mais n'aura plus de données app)
-              await supabase.auth.signOut();
-
-              queryClient.clear();
-              toast.success("Ton compte PERF-TRACK et tes données ont été supprimés.");
-            } catch (e: any) {
-              toast.error(e.message || "Erreur lors de la suppression du compte");
-            }
-            setLoading(false);
-          }}
-          disabled={loading}
+          Politique de confidentialité
+        </a>
+        <a
+          href="https://mova.app/terms"
+          target="_blank"
+          rel="noreferrer"
+          className="block text-sm text-primary hover:underline"
         >
-          <Trash2 className="h-4 w-4 mr-2" />
-          {loading ? "Suppression du compte..." : "Supprimer mon compte"}
-        </Button>
+          Conditions d'utilisation
+        </a>
       </div>
 
-      {/* Section données de test supprimée (plus de mock data) */}
+      <div className="space-y-4 pt-6">
+        <h2 className="text-lg font-semibold text-destructive">Zone dangereuse</h2>
+
+        <div className="glass-card p-6 space-y-4 border border-destructive/30">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-5 w-5 text-destructive" />
+            <h3 className="text-lg font-semibold text-foreground">Réinitialiser mes données</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Supprime toutes tes activités, métriques, pesées, données de santé et ton profil. Ton compte reste actif.
+          </p>
+          <Button variant="destructive" onClick={() => openConfirmModal("reset")} disabled={mockLoading}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            {mockLoading ? "Suppression..." : "Réinitialiser mes données"}
+          </Button>
+        </div>
+
+        <div className="glass-card p-6 space-y-4 border border-destructive/50 bg-destructive/5">
+          <div className="flex items-center gap-2">
+            <Trash2 className="h-5 w-5 text-destructive" />
+            <h3 className="text-lg font-semibold text-foreground">Supprimer mon compte</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Supprime ton profil et toutes tes données de Mova. Cette action est définitive et te déconnectera de l'application.
+          </p>
+          <Button variant="destructive" onClick={() => openConfirmModal("delete")} disabled={loading}>
+            <Trash2 className="h-4 w-4 mr-2" />
+            {loading ? "Suppression du compte..." : "Supprimer mon compte"}
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={confirmModalOpen} onOpenChange={(open) => (open ? setConfirmModalOpen(true) : closeConfirmModal())}>
+        <DialogContent className="max-w-md rounded-2xl border border-[rgba(239,68,68,0.3)] bg-[#111111] p-6">
+          {confirmStep === 1 ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-foreground">
+                  {confirmAction === "reset" ? "Réinitialiser mes données ?" : "Supprimer mon compte ?"}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  {confirmAction === "reset"
+                    ? "Cette action supprimera définitivement toutes tes activités, métriques, pesées et données de santé synchronisées. Ton compte et ton profil seront conservés. Cette action est irréversible."
+                    : "Cette action supprimera définitivement ton compte, ton profil et toutes tes données. Tu seras déconnecté immédiatement. Cette action est irréversible."}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="sm:justify-end">
+                <Button variant="outline" onClick={closeConfirmModal}>Annuler</Button>
+                <Button variant="destructive" onClick={() => setConfirmStep(2)}>Continuer</Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-foreground">Tape CONFIRMER pour valider</DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground">
+                  Cette action est irréversible.
+                </DialogDescription>
+              </DialogHeader>
+              <Input
+                value={confirmText}
+                onChange={(e) => setConfirmText(e.target.value)}
+                placeholder="CONFIRMER"
+                className="placeholder:text-muted-foreground/60"
+              />
+              <DialogFooter className="sm:justify-end">
+                <Button variant="outline" onClick={closeConfirmModal}>Annuler</Button>
+                <Button
+                  variant="destructive"
+                  disabled={confirmText !== "CONFIRMER" || loading || mockLoading}
+                  onClick={confirmAction === "reset" ? handleResetAllData : handleDeleteAccount}
+                >
+                  {confirmAction === "reset"
+                    ? (mockLoading ? "Réinitialisation..." : "Réinitialiser définitivement")
+                    : (loading ? "Suppression..." : "Supprimer définitivement")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

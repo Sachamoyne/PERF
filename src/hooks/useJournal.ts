@@ -7,6 +7,7 @@ export interface JournalEntry {
   user_id: string;
   date: string;
   mood: string | null;
+  mood_tags: string[] | null;
   mood_intensity: number | null;
   free_text: string | null;
   gratitude_1: string | null;

@@ -77,7 +77,7 @@ export async function syncManualEntryReminderSchedule(
       notifications: [
         {
           id: REMINDER_NOTIFICATION_ID,
-          title: "PERF",
+          title: "Mova",
           body: "C'est le moment de saisir tes données du jour 💪",
           schedule: {
             on: { hour, minute },

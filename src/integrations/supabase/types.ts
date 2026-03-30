@@ -182,6 +182,7 @@ export type Database = {
           gratitude_3: string | null
           id: string
           mood: string | null
+          mood_tags: string[] | null
           mood_intensity: number | null
           updated_at: string
           user_id: string
@@ -195,6 +196,7 @@ export type Database = {
           gratitude_3?: string | null
           id?: string
           mood?: string | null
+          mood_tags?: string[] | null
           mood_intensity?: number | null
           updated_at?: string
           user_id: string
@@ -208,9 +210,46 @@ export type Database = {
           gratitude_3?: string | null
           id?: string
           mood?: string | null
+          mood_tags?: string[] | null
           mood_intensity?: number | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_profile: {
+        Row: {
+          activity_level: string | null
+          age: number | null
+          created_at: string
+          height_cm: number | null
+          id: string
+          sex: string | null
+          updated_at: string
+          user_id: string
+          weight_kg: number | null
+        }
+        Insert: {
+          activity_level?: string | null
+          age?: number | null
+          created_at?: string
+          height_cm?: number | null
+          id?: string
+          sex?: string | null
+          updated_at?: string
+          user_id: string
+          weight_kg?: number | null
+        }
+        Update: {
+          activity_level?: string | null
+          age?: number | null
+          created_at?: string
+          height_cm?: number | null
+          id?: string
+          sex?: string | null
+          updated_at?: string
+          user_id?: string
+          weight_kg?: number | null
         }
         Relationships: []
       }

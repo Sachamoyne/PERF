@@ -6,7 +6,7 @@
  * After cloning from GitHub:
  *   1. npm install
  *   2. npm run build
- *   3. npx cap init "Athletes Ascent" "com.athletesascent.app" --web-dir dist
+ *   3. npx cap init "Mova" "com.perf.app" --web-dir dist
  *   4. npx cap add ios
  *   5. npx cap open ios
  *
@@ -15,8 +15,8 @@
  *   - Add Info.plist keys (see src/services/health.ts)
  */
 const config = {
-  appId: "com.athletesascent.app",
-  appName: "Athletes Ascent",
+  appId: "com.perf.app",
+  appName: "Mova",
   webDir: "dist",
   server: {
     // During dev, uncomment and set to your local IP:

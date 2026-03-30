@@ -28,7 +28,7 @@ function DateNav({ offset, setOffset }: {
     <div className="flex items-center gap-2">
       <button
         onClick={() => setOffset((o) => o - 1)}
-        className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+        className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -36,7 +36,7 @@ function DateNav({ offset, setOffset }: {
       <button
         onClick={() => setOffset((o) => Math.min(o + 1, 0))}
         disabled={isToday}
-        className="h-7 w-7 flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        className="h-11 w-11 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
@@ -65,7 +65,7 @@ export default function Dashboard() {
           metricType="weight"
           label="Poids"
           unit="kg"
-          color="hsl(262, 83%, 58%)"
+          color="hsl(var(--primary))"
           icon={<Scale className="h-4 w-4" />}
           source="body_metrics"
           bodyField="weight_kg"
@@ -76,7 +76,7 @@ export default function Dashboard() {
           metricType="body_fat"
           label="Masse Grasse"
           unit="%"
-          color="hsl(25, 95%, 53%)"
+          color="hsl(var(--warning))"
           icon={<Percent className="h-4 w-4" />}
           source="body_metrics"
           bodyField="body_fat_pc"
@@ -92,7 +92,7 @@ export default function Dashboard() {
           metricType="protein"
           label="Protéines"
           unit="g"
-          color="hsl(172, 66%, 50%)"
+          color="hsl(var(--primary))"
           icon={<Activity className="h-4 w-4" />}
           detailPath="/details/protein"
         />
@@ -101,7 +101,7 @@ export default function Dashboard() {
           metricType="steps"
           label="Pas"
           unit=""
-          color="hsl(152, 60%, 48%)"
+          color="hsl(var(--primary))"
           icon={<Footprints className="h-4 w-4" />}
           detailPath="/details/steps"
         />
@@ -113,7 +113,7 @@ export default function Dashboard() {
           metricType="hrv"
           label="HRV"
           unit="ms"
-          color="hsl(152, 60%, 48%)"
+          color="hsl(var(--primary))"
           icon={<Activity className="h-4 w-4" />}
           targetValue={60}
           detailPath="/details/hrv"
@@ -123,7 +123,7 @@ export default function Dashboard() {
           metricType="vo2max"
           label="VO2Max"
           unit="ml/kg/min"
-          color="hsl(172, 66%, 50%)"
+          color="hsl(var(--primary))"
           icon={<Wind className="h-4 w-4" />}
           targetValue={50}
           detailPath="/details/vo2max"
