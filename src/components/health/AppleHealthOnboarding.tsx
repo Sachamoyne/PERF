@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { HeartPulse, Loader2, Settings, RefreshCw } from "lucide-react";
+import { Heart, HeartPulse, Loader2, Settings, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { syncAppleHealth } from "@/services/appleHealth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -94,8 +94,7 @@ export function AppleHealthOnboarding() {
             Connecter Apple Health
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Autorise l'accès à ta fréquence cardiaque, HRV, poids, masse grasse, sommeil et séances
-            sportives pour importer automatiquement tes 30 derniers jours de données.
+            Mova utilise Apple HealthKit pour lire et synchroniser tes donnees de sante.
           </DialogDescription>
         </DialogHeader>
 
@@ -147,6 +146,15 @@ export function AppleHealthOnboarding() {
           </div>
         ) : (
           <div className="space-y-3 text-xs text-muted-foreground">
+            <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+              <p className="text-sm text-foreground font-medium flex items-center gap-2">
+                <Heart className="h-4 w-4 text-red-500 fill-red-500" />
+                Apple Sante (HealthKit)
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Categories lues: Activite physique, nutrition, sommeil, composition corporelle, frequence cardiaque.
+              </p>
+            </div>
             <p className="text-foreground text-sm font-medium">Ce qui sera importé :</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Séances (course, tennis, padel, musculation)</li>

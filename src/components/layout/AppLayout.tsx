@@ -9,6 +9,7 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { syncAppleHealth } from "@/services/appleHealth";
 import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { isSyncUploadAllowed } from "@/lib/syncConsent";
 
 function useAutoSync() {
   const { user } = useAuth();
@@ -23,6 +24,7 @@ function useAutoSync() {
       (Date.now() - syncStatus.lastSync.getTime()) > 6 * 60 * 60 * 1000;
 
     if (!shouldSync) return;
+    if (!isSyncUploadAllowed()) return;
     const plt = (() => { try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; } catch { return "web"; } })();
     if (plt !== "ios" && plt !== "android") return;
 

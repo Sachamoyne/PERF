@@ -88,6 +88,11 @@ export interface HealthPermissionResult {
   deniedTypes?: string[];
 }
 
+export interface HealthAuthorizationCheckResult {
+  authorized: string[];
+  denied: string[];
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatErrorDetails(err: unknown): Record<string, unknown> {
@@ -329,6 +334,38 @@ export async function requestHealthPermissions(): Promise<HealthPermissionResult
       ok: false,
       reason: "Impossible de demander l'autorisation Apple Santé. Vérifie la config iOS (Info.plist, entitlement HealthKit) et relance sur iPhone physique.",
     };
+  }
+}
+
+export async function checkHealthAuthorization(): Promise<HealthAuthorizationCheckResult> {
+  if (getPlatform() !== "ios") {
+    return { authorized: [], denied: [] };
+  }
+
+  if (!Health || typeof (Health as any).checkAuthorization !== "function") {
+    return { authorized: [], denied: [] };
+  }
+
+  try {
+    const res = await (Health as any).checkAuthorization({
+      read: [
+        "heartRateVariability",
+        "restingHeartRate",
+        "sleep",
+        "weight",
+        "bodyFat",
+        "steps",
+        "dietaryProtein",
+        "dietaryCarbohydrates",
+        "dietaryFat",
+      ],
+    });
+    return {
+      authorized: res.readAuthorized ?? [],
+      denied: res.readDenied ?? [],
+    };
+  } catch {
+    return { authorized: [], denied: [] };
   }
 }
 

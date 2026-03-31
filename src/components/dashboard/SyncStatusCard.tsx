@@ -6,6 +6,7 @@ import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { syncAppleHealth } from "@/services/appleHealth";
 import { Button } from "@/components/ui/button";
 import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
+import { isSyncUploadAllowed } from "@/lib/syncConsent";
 
 function useApplePlatform() {
   const [isIos, setIsIos] = useState(false);
@@ -34,6 +35,7 @@ export function SyncStatusCard() {
     mutationFn: async () => {
       // Guard explicite : ne jamais appeler HealthKit sans session valide
       if (!user) throw new Error("Non authentifié — reconnecte-toi avant de synchroniser.");
+      if (!isSyncUploadAllowed()) throw new Error("Synchronisation desactivee dans les parametres.");
       return syncAppleHealth(user.id);
     },
     onSuccess: async () => {

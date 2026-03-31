@@ -19,8 +19,9 @@ import {
 } from "@/hooks/useActivePhase";
 import { useAuth } from "@/hooks/useAuth";
 import { syncAppleHealth } from "@/services/appleHealth";
+import { setSyncConsent } from "@/lib/syncConsent";
 
-type StepKey = "welcome" | "profile" | "phase" | "health";
+type StepKey = "welcome" | "profile" | "phase" | "consent" | "health";
 
 function phaseWeightLabel(min: number, max: number) {
   if (min === 0 && max === 0) return "Objectif poids: stable";
@@ -143,8 +144,19 @@ export default function OnboardingPage() {
         return;
       }
 
+      setStep("consent");
+      return;
+    }
+
+    if (step === "consent") {
+      setSyncConsent(true);
       setStep("health");
     }
+  };
+
+  const handleContinueWithoutSync = () => {
+    setSyncConsent(false);
+    setStep("health");
   };
 
   const handleAuthorizeAndImport = async () => {
@@ -172,6 +184,7 @@ export default function OnboardingPage() {
   const showWelcome = step === "welcome";
   const showProfile = step === "profile";
   const showPhase = step === "phase";
+  const showConsent = step === "consent";
   const showHealth = step === "health";
 
   return (
@@ -187,7 +200,9 @@ export default function OnboardingPage() {
                 <span>•</span>
                 <span className={showPhase ? "text-foreground" : ""}>3. Phase</span>
                 <span>•</span>
-                <span className={showHealth ? "text-foreground" : ""}>4. Santé</span>
+                <span className={showConsent ? "text-foreground" : ""}>4. Confidentialité</span>
+                <span>•</span>
+                <span className={showHealth ? "text-foreground" : ""}>5. Santé</span>
               </>
             ) : (
               <>
@@ -300,9 +315,39 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {showConsent && (
+            <div className="space-y-4">
+              <h1 className="text-xl font-display font-bold text-foreground">Tes donnees sont en securite</h1>
+              <p className="text-sm text-muted-foreground">
+                Pour sauvegarder ton historique et te permettre d'acceder a Mova sur plusieurs appareils, tes donnees de sante
+                (nutrition, sommeil, activite, composition corporelle) sont stockees de maniere chiffree sur nos serveurs securises.
+              </p>
+              <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground space-y-1.5">
+                <p>• Tes donnees ne sont jamais vendues ni partagees avec des tiers</p>
+                <p>• Seul toi as acces a tes donnees</p>
+                <p>• Tu peux supprimer toutes tes donnees a tout moment depuis les Parametres</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button onClick={goToNext}>J'accepte et je continue</Button>
+                <Button variant="outline" onClick={handleContinueWithoutSync}>
+                  Utiliser sans synchronisation
+                </Button>
+              </div>
+            </div>
+          )}
+
           {showHealth && (
             <div className="space-y-4">
               <h1 className="text-xl font-display font-bold text-foreground">Autorisation Apple Santé</h1>
+              <div className="rounded-lg border border-border bg-card/70 p-3 space-y-2">
+                <p className="text-sm font-medium text-foreground">Apple Sante (HealthKit)</p>
+                <p className="text-sm text-muted-foreground">
+                  Mova utilise Apple HealthKit pour lire et synchroniser tes donnees de sante.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Activite physique, nutrition, sommeil, composition corporelle, frequence cardiaque.
+                </p>
+              </div>
               <p className="text-sm text-muted-foreground">
                 Autorise l'accès Santé pour importer automatiquement tes données et ton poids (Withings / Apple Santé).
               </p>

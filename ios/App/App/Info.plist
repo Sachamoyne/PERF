@@ -25,7 +25,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Mova accède à tes données Apple Santé pour suivre ta forme physique, ton sommeil, ta nutrition et tes entraînements.</string>
+	<string>Mova accède à tes données Apple Santé pour calculer ton score de forme et suivre ta progression sportive. Avec ton accord, ces données sont synchronisées sur nos serveurs sécurisés pour préserver ton historique.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Mova peut écrire des données dans Apple Santé.</string>
 	<key>NSUserNotificationsUsageDescription</key>

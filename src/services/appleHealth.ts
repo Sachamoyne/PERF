@@ -4,6 +4,7 @@ import type { HealthSample, SleepSample } from "./health";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { computeAndSaveCalorieBalance } from "@/services/calorieBalance";
+import { isSyncUploadAllowed } from "@/lib/syncConsent";
 const DEV = import.meta.env.DEV;
 
 export interface DiagnosticReport {
@@ -318,15 +319,29 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   let importedWeight     = 0;
   let importedBodyFat    = 0;
   let importedWorkouts   = 0;
-  let importedSleep      = 0;
+  const importedSleep = 0;
   let importedSteps      = 0;
   let importedCalories   = 0;
   let importedProtein    = 0;
   let importedCarbs      = 0;
   let importedFat        = 0;
+  let verified = {
+    health_metrics: {
+      hrv: 0,
+      rhr: 0,
+      sleep_score: 0,
+    },
+    body_metrics: { rows: 0 },
+    activities: { rows: 0 },
+  };
+  const uploadEnabled = isSyncUploadAllowed();
+
+  if (!uploadEnabled) {
+    console.info("[appleHealth] Upload disabled by user consent (mova_sync_consent=false)");
+  }
 
   // ── Étape 4a : HRV → health_metrics ─────────────────────────────────────
-  if (hrvByDay.length > 0) {
+  if (uploadEnabled && hrvByDay.length > 0) {
     const rows: TablesInsert<"health_metrics">[] = hrvByDay.map((s) => ({
       user_id:     userId,
       date:        s.date,
@@ -343,7 +358,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4b : Resting HR → health_metrics ───────────────────────────────
-  if (rhrByDay.length > 0) {
+  if (uploadEnabled && rhrByDay.length > 0) {
     const rows: TablesInsert<"health_metrics">[] = rhrByDay.map((s) => ({
       user_id:     userId,
       date:        s.date,
@@ -360,7 +375,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4c : Sleep Score → health_metrics ──────────────────────────────
-  if (sleepScoreByDay.length > 0) {
+  if (uploadEnabled && sleepScoreByDay.length > 0) {
     const rows: TablesInsert<"health_metrics">[] = sleepScoreByDay.map((s) => ({
       user_id:     userId,
       date:        s.date,
@@ -377,7 +392,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4d : Steps → health_metrics ────────────────────────────────────
-  if (snapshot.steps.length > 0) {
+  if (uploadEnabled && snapshot.steps.length > 0) {
     const rows: TablesInsert<"health_metrics">[] = snapshot.steps.map((s) => ({
       user_id:     userId,
       date:        s.date,
@@ -394,7 +409,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4e : Calories totales → health_metrics ─────────────────────────
-  if (snapshot.caloriesTotal.length > 0) {
+  if (uploadEnabled && snapshot.caloriesTotal.length > 0) {
     const caloriesByDay = groupByDaySum(snapshot.caloriesTotal).map((s) => ({ ...s, unit: "kcal" }));
     const today = toLocalDateStr(new Date().toISOString());
     const todayCalories = caloriesByDay.find((s) => s.date === today)?.value ?? 0;
@@ -421,7 +436,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4f : Protéines → health_metrics ────────────────────────────────
-  if (snapshot.protein.length > 0) {
+  if (uploadEnabled && snapshot.protein.length > 0) {
     const proteinByDay = groupByDaySum(snapshot.protein).map((s) => ({ ...s, unit: "g" }));
     const rows: TablesInsert<"health_metrics">[] = proteinByDay.map((s) => ({
       user_id:     userId,
@@ -441,7 +456,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   // ── Étape 4g : Glucides → health_metrics ─────────────────────────────────
   // NOTE SQL requis côté Supabase:
   // ALTER TYPE metric_type ADD VALUE IF NOT EXISTS 'carbs';
-  if (snapshot.carbohydrates.length > 0) {
+  if (uploadEnabled && snapshot.carbohydrates.length > 0) {
     const carbsByDay = groupByDaySum(snapshot.carbohydrates).map((s) => ({ ...s, unit: "g" }));
     const rows: TablesInsert<"health_metrics">[] = carbsByDay.map((s) => ({
       user_id:     userId,
@@ -461,7 +476,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   // ── Étape 4h : Lipides → health_metrics ──────────────────────────────────
   // NOTE SQL requis côté Supabase:
   // ALTER TYPE metric_type ADD VALUE IF NOT EXISTS 'fat';
-  if (snapshot.fat.length > 0) {
+  if (uploadEnabled && snapshot.fat.length > 0) {
     const fatByDay = groupByDaySum(snapshot.fat).map((s) => ({ ...s, unit: "g" }));
     const rows: TablesInsert<"health_metrics">[] = fatByDay.map((s) => ({
       user_id:     userId,
@@ -479,7 +494,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4i : Poids + Masse grasse → body_metrics ───────────────────────
-  {
+  if (uploadEnabled) {
     // Fusionner poids et masse grasse par date
     const bodyMap = new Map<string, { weight_kg?: number; body_fat_pc?: number }>();
     for (const s of weightByDay) {
@@ -514,7 +529,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   }
 
   // ── Étape 4j : Workouts → activities ─────────────────────────────────────
-  if (snapshot.workouts.length > 0) {
+  if (uploadEnabled && snapshot.workouts.length > 0) {
     const startDate = jan1.toISOString();
 
     const makeActivityKey = (x: {
@@ -624,33 +639,35 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
 
   // ── Mise à jour last_sync ─────────────────────────────────────────────────
   const lastSync = new Date().toISOString();
-  await supabase
-    .from("profiles")
-    .update({ last_sync: lastSync })
-    .eq("user_id", userId);
+  if (uploadEnabled) {
+    await supabase
+      .from("profiles")
+      .update({ last_sync: lastSync })
+      .eq("user_id", userId);
 
-  // ── Étape 5 : Vérification post-import (RLS / visibilité) ─────────────────
-  const sinceTs = sinceDate.toISOString();
+    // ── Étape 5 : Vérification post-import (RLS / visibilité) ─────────────────
+    const sinceTs = sinceDate.toISOString();
 
-  const [hmHrv, hmRhr, hmSleep, bm, acts] = await Promise.all([
-    supabase.from("health_metrics").select("id", { count: "exact", head: true }).eq("metric_type", "hrv").gte("date", sinceDateStr),
-    supabase.from("health_metrics").select("id", { count: "exact", head: true }).eq("metric_type", "rhr").gte("date", sinceDateStr),
-    supabase.from("health_metrics").select("id", { count: "exact", head: true }).eq("metric_type", "sleep_score").gte("date", sinceDateStr),
-    supabase.from("body_metrics").select("id", { count: "exact", head: true }).gte("date", sinceDateStr),
-    supabase.from("activities").select("id", { count: "exact", head: true }).gte("start_time", sinceTs),
-  ]);
+    const [hmHrv, hmRhr, hmSleep, bm, acts] = await Promise.all([
+      supabase.from("health_metrics").select("id", { count: "exact", head: true }).eq("metric_type", "hrv").gte("date", sinceDateStr),
+      supabase.from("health_metrics").select("id", { count: "exact", head: true }).eq("metric_type", "rhr").gte("date", sinceDateStr),
+      supabase.from("health_metrics").select("id", { count: "exact", head: true }).eq("metric_type", "sleep_score").gte("date", sinceDateStr),
+      supabase.from("body_metrics").select("id", { count: "exact", head: true }).gte("date", sinceDateStr),
+      supabase.from("activities").select("id", { count: "exact", head: true }).gte("start_time", sinceTs),
+    ]);
 
-  const verified = {
-    health_metrics: {
-      hrv: hmHrv.count ?? 0,
-      rhr: hmRhr.count ?? 0,
-      sleep_score: hmSleep.count ?? 0,
-    },
-    body_metrics: { rows: bm.count ?? 0 },
-    activities: { rows: acts.count ?? 0 },
-  };
+    verified = {
+      health_metrics: {
+        hrv: hmHrv.count ?? 0,
+        rhr: hmRhr.count ?? 0,
+        sleep_score: hmSleep.count ?? 0,
+      },
+      body_metrics: { rows: bm.count ?? 0 },
+      activities: { rows: acts.count ?? 0 },
+    };
 
-  console.info("[appleHealth] Post-import visibility check", verified);
+    console.info("[appleHealth] Post-import visibility check", verified);
+  }
 
   const importedSamples =
     importedHrv + importedRhr + importedSleepScore +
@@ -665,7 +682,9 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   });
 
   try {
-    await computeAndSaveCalorieBalance(userId, sinceDateStr);
+    if (uploadEnabled) {
+      await computeAndSaveCalorieBalance(userId, sinceDateStr);
+    }
   } catch (error) {
     console.warn("[appleHealth] calorie balance refresh failed (non-blocking):", error);
   }

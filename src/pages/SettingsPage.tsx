@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { ExternalLink, Heart, ShieldCheck, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -24,6 +24,25 @@ import {
   saveManualEntryReminderSettings,
   syncManualEntryReminderSchedule,
 } from "@/services/manualEntryReminder";
+import { checkHealthAuthorization } from "@/services/health";
+import { getSyncConsent, setSyncConsent, type SyncConsentState } from "@/lib/syncConsent";
+import { SyncConsentDialog } from "@/components/health/SyncConsentDialog";
+
+const HEALTH_TYPE_LABELS: Record<string, string> = {
+  heartRateVariability: "Variabilite de frequence cardiaque (HRV)",
+  restingHeartRate: "Frequence cardiaque au repos",
+  sleep: "Sommeil",
+  weight: "Poids",
+  bodyFat: "Masse grasse",
+  steps: "Pas",
+  dietaryProtein: "Proteines",
+  dietaryCarbohydrates: "Glucides",
+  dietaryFat: "Lipides",
+};
+
+function getHealthTypeLabel(type: string): string {
+  return HEALTH_TYPE_LABELS[type] ?? type;
+}
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -36,6 +55,9 @@ export default function SettingsPage() {
   const [confirmStep, setConfirmStep] = useState<1 | 2>(1);
   const [confirmText, setConfirmText] = useState("");
   const [confirmAction, setConfirmAction] = useState<"reset" | "delete">("reset");
+  const [authorizedHealthTypes, setAuthorizedHealthTypes] = useState<string[]>([]);
+  const [syncConsentState, setSyncConsentState] = useState<SyncConsentState>("unknown");
+  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
   const { isDark, setTheme } = useTheme();
   const queryClient = useQueryClient();
   const {
@@ -51,6 +73,17 @@ export default function SettingsPage() {
     const settings = getManualEntryReminderSettings();
     setReminderEnabled(settings.enabled);
     setReminderTime(settings.time);
+  }, []);
+
+  useEffect(() => {
+    setSyncConsentState(getSyncConsent());
+    checkHealthAuthorization()
+      .then((result) => {
+        setAuthorizedHealthTypes(result.authorized ?? []);
+      })
+      .catch(() => {
+        setAuthorizedHealthTypes([]);
+      });
   }, []);
 
   const handleSaveReminder = async () => {
@@ -128,6 +161,28 @@ export default function SettingsPage() {
     setLoading(false);
   };
 
+  const openHealthSettings = () => {
+    try {
+      window.location.href = "x-apple-health://";
+    } catch {
+      window.open("x-apple-health://", "_self");
+    }
+  };
+
+  const handleConsentAccept = () => {
+    setSyncConsent(true);
+    setSyncConsentState("granted");
+    setConsentDialogOpen(false);
+    toast.success("Synchronisation activee");
+  };
+
+  const handleConsentDecline = () => {
+    setSyncConsent(false);
+    setSyncConsentState("denied");
+    setConsentDialogOpen(false);
+    toast.success("Synchronisation desactivee");
+  };
+
   return (
     <div className="w-full space-y-8">
       <h1 className="text-2xl font-display font-bold text-foreground">Paramètres</h1>
@@ -190,6 +245,47 @@ export default function SettingsPage() {
             aria-label="Basculer thème sombre/clair"
           />
         </div>
+      </div>
+
+      <div className="glass-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <Heart className="h-5 w-5 text-red-500 fill-red-500" />
+          Apple Sante
+        </h2>
+        <p className="text-sm text-muted-foreground">Mova est connectee a Apple Sante (HealthKit).</p>
+        <div className="rounded-lg border border-border p-3 space-y-2">
+          <p className="text-xs text-muted-foreground">Types de donnees autorises:</p>
+          {authorizedHealthTypes.length > 0 ? (
+            <ul className="text-sm text-foreground list-disc pl-5 space-y-1">
+              {authorizedHealthTypes.map((type) => (
+                <li key={type}>{getHealthTypeLabel(type)}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">Aucune autorisation active detectee.</p>
+          )}
+        </div>
+        <Button variant="outline" onClick={openHealthSettings}>
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Gerer les autorisations
+        </Button>
+      </div>
+
+      <div className="glass-card p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          Donnees
+        </h2>
+        {syncConsentState === "denied" ? (
+          <p className="text-sm text-muted-foreground">
+            Synchronisation desactivee - tes donnees restent sur cet appareil.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Synchronisation activee pour la sauvegarde securisee de ton historique.</p>
+        )}
+        <Button variant="outline" onClick={() => setConsentDialogOpen(true)}>
+          {syncConsentState === "denied" ? "Activer la synchronisation" : "Gerer la synchronisation"}
+        </Button>
       </div>
 
       <div className="glass-card p-6 space-y-4">
@@ -328,6 +424,13 @@ export default function SettingsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <SyncConsentDialog
+        open={consentDialogOpen}
+        onOpenChange={setConsentDialogOpen}
+        onAccept={handleConsentAccept}
+        onDecline={handleConsentDecline}
+      />
     </div>
   );
 }
