@@ -372,7 +372,11 @@ function LogbookView({
   onSessionCreated: (id: string) => void;
   onClose: () => void;
 }) {
-  const { data: workoutSessions = [] } = useWorkoutSessions();
+  const {
+    data: workoutSessions = [],
+    isLoading: isWorkoutSessionsLoading,
+    error: workoutSessionsError,
+  } = useWorkoutSessions();
   const addSet = useAddWorkoutSet();
   const deleteSet = useDeleteWorkoutSet();
   const getOrCreateSessionForActivity = useGetOrCreateSessionForActivity();
@@ -382,6 +386,7 @@ function LogbookView({
   const [customExercise, setCustomExercise] = useState("");
   const [localExercises, setLocalExercises] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<string, ExerciseDraft>>({});
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(
     sessionId !== "__pending__" ? sessionId : null
   );
@@ -397,6 +402,35 @@ function LogbookView({
     ? workoutSessions.find((s) => s.id === effectiveSessionId) ?? null
     : null;
   const sets = (session?.workout_sets ?? []) as WorkoutSetRow[];
+
+  useEffect(() => {
+    console.log("[logbook] début fetch, workout_id:", effectiveSessionId ?? null);
+    if (!effectiveSessionId) {
+      console.log("[logbook] workout_id/session_id absent, activity_id:", activityId);
+    }
+  }, [effectiveSessionId, activityId]);
+
+  useEffect(() => {
+    if (!isWorkoutSessionsLoading) return;
+    const timeoutId = setTimeout(() => {
+      setErrorMessage("Impossible de charger le logbook. Réessaie.");
+    }, 10000);
+    return () => clearTimeout(timeoutId);
+  }, [isWorkoutSessionsLoading, effectiveSessionId, activityId]);
+
+  useEffect(() => {
+    if (workoutSessionsError) {
+      const message =
+        workoutSessionsError instanceof Error
+          ? workoutSessionsError.message
+          : "Impossible de charger le logbook. Réessaie.";
+      setErrorMessage(message);
+      return;
+    }
+    if (!isWorkoutSessionsLoading) {
+      setErrorMessage(null);
+    }
+  }, [workoutSessionsError, isWorkoutSessionsLoading]);
 
   const groupedExercises = useMemo(() => {
     const map = new Map<string, WorkoutSetRow[]>();
@@ -415,7 +449,15 @@ function LogbookView({
     }));
   }, [sets, localExercises]);
 
-  if (!session) {
+  if (errorMessage) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+        {errorMessage}
+      </div>
+    );
+  }
+
+  if (isWorkoutSessionsLoading) {
     return (
       <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
         Chargement du logbook...
@@ -519,7 +561,9 @@ function LogbookView({
   return (
     <div className="space-y-3">
       {groupedExercises.length === 0 ? (
-        <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">Aucun exercice pour cette séance.</div>
+        <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground">
+          Aucun exercice enregistré pour cette séance. Appuie sur + pour commencer.
+        </div>
       ) : (
         groupedExercises.map(({ exerciseName, sets: exSets }) => (
           <ExerciseLogbookBlock

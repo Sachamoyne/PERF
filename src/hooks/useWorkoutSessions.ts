@@ -17,11 +17,13 @@ export function useWorkoutSessions() {
     enabled: !!user,
     queryFn: async () => {
       if (!user) return [] as WorkoutSessionRow[];
+      console.log("[logbook] début fetch, workout_id:", null);
       const { data, error } = await supabase
         .from("workout_sessions")
         .select("id,user_id,date,name,notes,created_at,activity_id, workout_sets(*)")
         .eq("user_id", user.id)
         .order("date", { ascending: false });
+      console.log("[logbook] résultat:", data, "erreur:", error);
       if (error) throw error;
       return (data ?? []) as WorkoutSessionRow[];
     },
