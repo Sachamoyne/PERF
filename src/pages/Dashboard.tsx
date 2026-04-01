@@ -1,5 +1,5 @@
 import { Footprints, Scale, Percent, Wind, Activity, ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { KpiCard } from "@/components/dashboard/KpiCard";
@@ -10,10 +10,6 @@ import { ManualMetricCard } from "@/components/dashboard/ManualMetricCard";
 import { CalorieBalanceCard } from "@/components/dashboard/CalorieBalanceCard";
 import { WeeklySummary } from "@/components/dashboard/WeeklySummary";
 import { CentralManualEntryFab } from "@/components/dashboard/CentralManualEntryFab";
-import { Button } from "@/components/ui/button";
-import { SyncConsentDialog } from "@/components/health/SyncConsentDialog";
-import { getSyncConsent, setSyncConsent } from "@/lib/syncConsent";
-import { toast } from "sonner";
 
 function getParisLocalDateString(): string {
   return new Date().toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
@@ -50,49 +46,13 @@ function DateNav({ offset, setOffset }: {
 
 export default function Dashboard() {
   const [offset, setOffset] = useState(0);
-  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
-  const [showConsentBanner, setShowConsentBanner] = useState(false);
   const isToday = offset === 0;
   const parisToday = new Date(`${getParisLocalDateString()}T12:00:00`);
   const selectedDate = isToday ? parisToday : subDays(parisToday, Math.abs(offset));
   const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
 
-  useEffect(() => {
-    setShowConsentBanner(getSyncConsent() === "unknown");
-  }, []);
-
-  const handleConsentAccept = () => {
-    setSyncConsent(true);
-    setShowConsentBanner(false);
-    setConsentDialogOpen(false);
-    toast.success("Synchronisation activee");
-  };
-
-  const handleConsentDecline = () => {
-    setSyncConsent(false);
-    setShowConsentBanner(false);
-    setConsentDialogOpen(false);
-    toast.success("Synchronisation desactivee");
-  };
-
   return (
     <div className="space-y-4">
-      {showConsentBanner && (
-        <div className="rounded-lg border border-border bg-card/70 p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-muted-foreground">
-            Mova synchronise tes donnees sur nos serveurs securises.
-          </p>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setConsentDialogOpen(true)}>
-              En savoir plus
-            </Button>
-            <Button size="sm" onClick={() => setConsentDialogOpen(true)}>
-              Gerer
-            </Button>
-          </div>
-        </div>
-      )}
-
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-display font-bold text-foreground">Dashboard</h1>
@@ -180,13 +140,6 @@ export default function Dashboard() {
       </div>
 
       <CentralManualEntryFab date={selectedDateStr} />
-
-      <SyncConsentDialog
-        open={consentDialogOpen}
-        onOpenChange={setConsentDialogOpen}
-        onAccept={handleConsentAccept}
-        onDecline={handleConsentDecline}
-      />
     </div>
   );
 }

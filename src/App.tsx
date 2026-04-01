@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
 import { SyncConsentDialog } from "@/components/health/SyncConsentDialog";
 import { getSyncConsent, setSyncConsent } from "@/lib/syncConsent";
+import { requestHealthPermissions } from "@/services/health";
+import { syncAppleHealth } from "@/services/appleHealth";
 import Dashboard from "./pages/Dashboard";
 
 import Running from "./pages/Running";
@@ -134,9 +136,12 @@ function AppRoutes() {
     setConsentDialogOpen(!!user && getSyncConsent() === "unknown");
   }, [loading, location.pathname, user?.id]);
 
-  const handleConsentAccept = () => {
+  const handleConsentAccept = async () => {
+    if (!user) return;
     setSyncConsent(true);
     setConsentDialogOpen(false);
+    await requestHealthPermissions();
+    await syncAppleHealth(user.id);
   };
 
   const handleConsentDecline = () => {
