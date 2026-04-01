@@ -317,20 +317,18 @@ export default function OnboardingPage() {
 
           {showConsent && (
             <div className="space-y-4">
-              <h1 className="text-xl font-display font-bold text-foreground">Tes donnees sont en securite</h1>
-              <p className="text-sm text-muted-foreground">
-                Pour sauvegarder ton historique et te permettre d'acceder a Mova sur plusieurs appareils, tes donnees de sante
-                (nutrition, sommeil, activite, composition corporelle) sont stockees de maniere chiffree sur nos serveurs securises.
-              </p>
-              <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground space-y-1.5">
-                <p>• Tes donnees ne sont jamais vendues ni partagees avec des tiers</p>
-                <p>• Seul toi as acces a tes donnees</p>
-                <p>• Tu peux supprimer toutes tes donnees a tout moment depuis les Parametres</p>
+              <h1 className="text-xl font-display font-bold text-foreground">Confidentialité et données</h1>
+              <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground space-y-3">
+                <p>
+                  Mova synchronise tes données de santé (activité, nutrition, sommeil, fréquence cardiaque) sur nos serveurs sécurisés afin de conserver ton historique.
+                </p>
+                <p>Tes données ne sont jamais partagées avec des tiers.</p>
+                <p>En continuant, tu acceptes que tes données soient stockées sur nos serveurs.</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
-                <Button onClick={goToNext}>J'accepte et je continue</Button>
+                <Button onClick={goToNext}>J'accepte</Button>
                 <Button variant="outline" onClick={handleContinueWithoutSync}>
-                  Utiliser sans synchronisation
+                  Refuser — données locales uniquement
                 </Button>
               </div>
             </div>
@@ -339,14 +337,17 @@ export default function OnboardingPage() {
           {showHealth && (
             <div className="space-y-4">
               <h1 className="text-xl font-display font-bold text-foreground">Autorisation Apple Santé</h1>
-              <div className="rounded-lg border border-border bg-card/70 p-3 space-y-2">
-                <p className="text-sm font-medium text-foreground">Apple Sante (HealthKit)</p>
-                <p className="text-sm text-muted-foreground">
-                  Mova utilise Apple HealthKit pour lire et synchroniser tes donnees de sante.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Activite physique, nutrition, sommeil, composition corporelle, frequence cardiaque.
-                </p>
+              <div className="rounded-lg border border-border bg-card/70 p-3 space-y-3">
+                <p className="text-base font-semibold text-foreground">❤️ Cette app utilise Apple HealthKit</p>
+                <p className="text-sm text-muted-foreground">Les données de santé suivantes seront lues depuis Apple Santé :</p>
+                <ul className="list-disc pl-5 text-sm text-foreground space-y-1">
+                  <li>Activité physique</li>
+                  <li>Nutrition</li>
+                  <li>Sommeil</li>
+                  <li>Fréquence cardiaque</li>
+                  <li>Composition corporelle</li>
+                  <li>Pas</li>
+                </ul>
               </div>
               <p className="text-sm text-muted-foreground">
                 Autorise l'accès Santé pour importer automatiquement tes données et ton poids (Withings / Apple Santé).

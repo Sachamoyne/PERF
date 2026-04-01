@@ -4,7 +4,7 @@ import type { HealthSample, SleepSample } from "./health";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { computeAndSaveCalorieBalance } from "@/services/calorieBalance";
-import { isSyncUploadAllowed } from "@/lib/syncConsent";
+import { getSyncConsent, isSyncUploadAllowed } from "@/lib/syncConsent";
 const DEV = import.meta.env.DEV;
 
 export interface DiagnosticReport {
@@ -141,6 +141,13 @@ function computeSleepScores(
  */
 export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncResult> {
   if (DEV) console.info("[appleHealth] Starting sync for user", userId);
+  const consent = getSyncConsent();
+  if (consent === "unknown") {
+    throw new Error("Consentement requis avant toute synchronisation de donnees de sante.");
+  }
+  if (consent === "refused") {
+    throw new Error("Synchronisation desactivee (donnees locales uniquement).");
+  }
   const platform = (() => {
     try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; }
     catch { return "web"; }
@@ -337,7 +344,7 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   const uploadEnabled = isSyncUploadAllowed();
 
   if (!uploadEnabled) {
-    console.info("[appleHealth] Upload disabled by user consent (mova_sync_consent=false)");
+    console.info("[appleHealth] Upload disabled by user consent (mova_data_consent!=accepted)");
   }
 
   // ── Étape 4a : HRV → health_metrics ─────────────────────────────────────

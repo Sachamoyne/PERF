@@ -171,14 +171,14 @@ export default function SettingsPage() {
 
   const handleConsentAccept = () => {
     setSyncConsent(true);
-    setSyncConsentState("granted");
+    setSyncConsentState("accepted");
     setConsentDialogOpen(false);
     toast.success("Synchronisation activee");
   };
 
   const handleConsentDecline = () => {
     setSyncConsent(false);
-    setSyncConsentState("denied");
+    setSyncConsentState("refused");
     setConsentDialogOpen(false);
     toast.success("Synchronisation desactivee");
   };
@@ -249,10 +249,10 @@ export default function SettingsPage() {
 
       <div className="glass-card p-6 space-y-4">
         <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-          <Heart className="h-5 w-5 text-red-500 fill-red-500" />
-          Apple Sante
+          <span className="text-xl leading-none">❤️</span>
+          Apple HealthKit
         </h2>
-        <p className="text-sm text-muted-foreground">Mova est connectee a Apple Sante (HealthKit).</p>
+        <p className="text-sm text-muted-foreground">❤️ Connecté à Apple HealthKit</p>
         <div className="rounded-lg border border-border p-3 space-y-2">
           <p className="text-xs text-muted-foreground">Types de donnees autorises:</p>
           {authorizedHealthTypes.length > 0 ? (
@@ -267,7 +267,7 @@ export default function SettingsPage() {
         </div>
         <Button variant="outline" onClick={openHealthSettings}>
           <ExternalLink className="h-4 w-4 mr-2" />
-          Gerer les autorisations
+          Voir les autorisations
         </Button>
       </div>
 
@@ -276,15 +276,19 @@ export default function SettingsPage() {
           <ShieldCheck className="h-5 w-5 text-primary" />
           Donnees
         </h2>
-        {syncConsentState === "denied" ? (
+        {syncConsentState === "refused" ? (
           <p className="text-sm text-muted-foreground">
             Synchronisation desactivee - tes donnees restent sur cet appareil.
+          </p>
+        ) : syncConsentState === "unknown" ? (
+          <p className="text-sm text-muted-foreground">
+            Consentement requis avant toute synchronisation de donnees de sante.
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">Synchronisation activee pour la sauvegarde securisee de ton historique.</p>
         )}
         <Button variant="outline" onClick={() => setConsentDialogOpen(true)}>
-          {syncConsentState === "denied" ? "Activer la synchronisation" : "Gerer la synchronisation"}
+          {syncConsentState === "refused" ? "Activer la synchronisation" : "Gerer la synchronisation"}
         </Button>
       </div>
 

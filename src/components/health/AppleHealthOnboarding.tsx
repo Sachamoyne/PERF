@@ -88,13 +88,22 @@ export function AppleHealthOnboarding() {
       <DialogContent className="glass-card border-glass-border max-w-md bg-background/85 backdrop-blur-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-foreground">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <HeartPulse className="h-4 w-4" />
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-500/10 text-red-500">
+              ❤️
             </span>
             Connecter Apple Health
           </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Mova utilise Apple HealthKit pour lire et synchroniser tes donnees de sante.
+          <DialogDescription className="text-muted-foreground space-y-2">
+            <p className="text-sm font-semibold text-foreground">Cette app utilise Apple HealthKit</p>
+            <p>Les données de santé suivantes seront lues depuis Apple Santé :</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Activité physique</li>
+              <li>Nutrition</li>
+              <li>Sommeil</li>
+              <li>Fréquence cardiaque</li>
+              <li>Composition corporelle</li>
+              <li>Pas</li>
+            </ul>
           </DialogDescription>
         </DialogHeader>
 
@@ -146,15 +155,6 @@ export function AppleHealthOnboarding() {
           </div>
         ) : (
           <div className="space-y-3 text-xs text-muted-foreground">
-            <div className="rounded-lg border border-border bg-card p-3 space-y-2">
-              <p className="text-sm text-foreground font-medium flex items-center gap-2">
-                <Heart className="h-4 w-4 text-red-500 fill-red-500" />
-                Apple Sante (HealthKit)
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Categories lues: Activite physique, nutrition, sommeil, composition corporelle, frequence cardiaque.
-              </p>
-            </div>
             <p className="text-foreground text-sm font-medium">Ce qui sera importé :</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Séances (course, tennis, padel, musculation)</li>

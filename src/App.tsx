@@ -1,10 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserProfile } from "@/hooks/useUserProfile";
+import { SyncConsentDialog } from "@/components/health/SyncConsentDialog";
+import { getSyncConsent, setSyncConsent } from "@/lib/syncConsent";
 import Dashboard from "./pages/Dashboard";
 
 import Running from "./pages/Running";
@@ -123,7 +126,23 @@ function AppRoutes() {
   const { user, loading } = useAuth();
   const { isLoading: profileLoading, isComplete: isProfileComplete } = useUserProfile();
   const location = useLocation();
+  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
   const onboardingEditMode = location.pathname === "/onboarding" && new URLSearchParams(location.search).get("mode") === "edit";
+
+  useEffect(() => {
+    if (loading) return;
+    setConsentDialogOpen(!!user && getSyncConsent() === "unknown");
+  }, [loading, location.pathname, user?.id]);
+
+  const handleConsentAccept = () => {
+    setSyncConsent(true);
+    setConsentDialogOpen(false);
+  };
+
+  const handleConsentDecline = () => {
+    setSyncConsent(false);
+    setConsentDialogOpen(false);
+  };
 
   if (loading) {
     return (
@@ -134,85 +153,98 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      <Route
-        path="/auth"
-        element={
-          !user
-            ? <AuthPage />
-            : profileLoading
-              ? (
-                <div className="min-h-screen bg-background flex items-center justify-center">
-                  <div className="text-muted-foreground text-sm">Chargement...</div>
-                </div>
-              )
-              : isProfileComplete
+    <>
+      <Routes>
+        <Route
+          path="/auth"
+          element={
+            !user
+              ? <AuthPage />
+              : profileLoading
                 ? (
-                  <LoggedRedirect
-                    to="/"
-                    authState={{
-                      isAuthenticated: true,
-                      authLoading: loading,
-                      profileLoading,
-                      isProfileComplete,
-                      pathname: location.pathname,
-                    }}
-                  />
+                  <div className="min-h-screen bg-background flex items-center justify-center">
+                    <div className="text-muted-foreground text-sm">Chargement...</div>
+                  </div>
                 )
-                : (
-                  <LoggedRedirect
-                    to="/onboarding"
-                    authState={{
-                      isAuthenticated: true,
-                      authLoading: loading,
-                      profileLoading,
-                      isProfileComplete,
-                      pathname: location.pathname,
-                    }}
-                  />
-                )
-        }
-      />
-      <Route
-        path="/onboarding"
-        element={
-          !user
-            ? (
-              <LoggedRedirect
-                to="/auth"
-                authState={{
-                  isAuthenticated: false,
-                  authLoading: loading,
-                  profileLoading,
-                  isProfileComplete,
-                  pathname: location.pathname,
-                }}
-              />
-            )
-            : profileLoading
+                : isProfileComplete
+                  ? (
+                    <LoggedRedirect
+                      to="/"
+                      authState={{
+                        isAuthenticated: true,
+                        authLoading: loading,
+                        profileLoading,
+                        isProfileComplete,
+                        pathname: location.pathname,
+                      }}
+                    />
+                  )
+                  : (
+                    <LoggedRedirect
+                      to="/onboarding"
+                      authState={{
+                        isAuthenticated: true,
+                        authLoading: loading,
+                        profileLoading,
+                        isProfileComplete,
+                        pathname: location.pathname,
+                      }}
+                    />
+                  )
+          }
+        />
+        <Route
+          path="/onboarding"
+          element={
+            !user
               ? (
-                <div className="min-h-screen bg-background flex items-center justify-center">
-                  <div className="text-muted-foreground text-sm">Chargement...</div>
-                </div>
+                <LoggedRedirect
+                  to="/auth"
+                  authState={{
+                    isAuthenticated: false,
+                    authLoading: loading,
+                    profileLoading,
+                    isProfileComplete,
+                    pathname: location.pathname,
+                  }}
+                />
               )
-              : isProfileComplete && !onboardingEditMode
+              : profileLoading
                 ? (
-                  <LoggedRedirect
-                    to="/"
-                    authState={{
-                      isAuthenticated: true,
-                      authLoading: loading,
-                      profileLoading,
-                      isProfileComplete,
-                      pathname: location.pathname,
-                    }}
-                  />
+                  <div className="min-h-screen bg-background flex items-center justify-center">
+                    <div className="text-muted-foreground text-sm">Chargement...</div>
+                  </div>
                 )
-                : <OnboardingPage />
-        }
+                : isProfileComplete && !onboardingEditMode
+                  ? (
+                    <LoggedRedirect
+                      to="/"
+                      authState={{
+                        isAuthenticated: true,
+                        authLoading: loading,
+                        profileLoading,
+                        isProfileComplete,
+                        pathname: location.pathname,
+                      }}
+                    />
+                  )
+                  : <OnboardingPage />
+          }
+        />
+        <Route path="/*" element={<ProtectedRoutes />} />
+      </Routes>
+
+      <SyncConsentDialog
+        open={consentDialogOpen}
+        onOpenChange={(open) => {
+          if (getSyncConsent() === "unknown") return;
+          setConsentDialogOpen(open);
+        }}
+        onAccept={handleConsentAccept}
+        onDecline={handleConsentDecline}
+        blocking
       />
-      <Route path="/*" element={<ProtectedRoutes />} />
-    </Routes>
+    </>
   );
 }
 

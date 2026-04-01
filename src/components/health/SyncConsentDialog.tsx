@@ -1,4 +1,3 @@
-import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
@@ -7,36 +6,37 @@ interface SyncConsentDialogProps {
   onOpenChange: (open: boolean) => void;
   onAccept: () => void;
   onDecline: () => void;
+  blocking?: boolean;
 }
 
-export function SyncConsentDialog({ open, onOpenChange, onAccept, onDecline }: SyncConsentDialogProps) {
+export function SyncConsentDialog({ open, onOpenChange, onAccept, onDecline, blocking = false }: SyncConsentDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent
+        className={`max-w-lg ${blocking ? "[&>button]:hidden" : ""}`}
+        onEscapeKeyDown={(event) => {
+          if (blocking) event.preventDefault();
+        }}
+        onPointerDownOutside={(event) => {
+          if (blocking) event.preventDefault();
+        }}
+      >
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-foreground">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Tes donnees sont en securite
-          </DialogTitle>
+          <DialogTitle className="text-foreground">Confidentialité et données</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground space-y-2">
             <p>
-              Pour sauvegarder ton historique et te permettre d'acceder a Mova sur plusieurs appareils, tes donnees de sante
-              (nutrition, sommeil, activite, composition corporelle) sont stockees de maniere chiffree sur nos serveurs securises.
+              Mova synchronise tes données de santé (activité, nutrition, sommeil, fréquence cardiaque) sur nos serveurs sécurisés afin de conserver ton historique.
             </p>
+            <p>Tes données ne sont jamais partagées avec des tiers.</p>
+            <p>En continuant, tu acceptes que tes données soient stockées sur nos serveurs.</p>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="rounded-lg border border-border p-3 text-sm text-muted-foreground space-y-1.5">
-          <p>• Tes donnees ne sont jamais vendues ni partagees avec des tiers</p>
-          <p>• Seul toi as acces a tes donnees</p>
-          <p>• Tu peux supprimer toutes tes donnees a tout moment depuis les Parametres</p>
-        </div>
-
         <DialogFooter className="sm:justify-end gap-2">
           <Button variant="outline" onClick={onDecline}>
-            Utiliser sans synchronisation
+            Refuser — données locales uniquement
           </Button>
-          <Button onClick={onAccept}>J'accepte et je continue</Button>
+          <Button onClick={onAccept}>J'accepte</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
