@@ -7,6 +7,7 @@ export function useHealthMetrics(days = 30) {
   return useQuery({
     queryKey: ["health_metrics", days, user?.id],
     enabled: !!user,
+    staleTime: 0,
     queryFn: async () => {
       if (!user) return [];
       const since = new Date();
@@ -29,6 +30,7 @@ export function useLatestMetrics() {
   return useQuery({
     queryKey: ["latest_metrics", user?.id],
     enabled: !!user,
+    staleTime: 0,
     queryFn: async () => {
       if (!user) return {};
       const types = ["hrv", "sleep_score", "rhr", "vo2max"] as const;

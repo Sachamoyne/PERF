@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import LogSessionDrawer from "@/components/racket/LogSessionDrawer";
 
 type Filter = "all" | "tennis" | "padel";
 
@@ -108,6 +109,7 @@ export default function Racket() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-display font-bold text-foreground">Sports de Raquette</h1>
+        <LogSessionDrawer />
       </div>
 
       {/* Filter chips */}

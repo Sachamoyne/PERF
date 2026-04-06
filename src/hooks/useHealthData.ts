@@ -98,6 +98,7 @@ export function useHealthMetrics(days = 30) {
   return useQuery({
     queryKey: ["health_metrics", days, user?.id],
     enabled: !!user,
+    staleTime: 0,
     queryFn: () => fetchMetrics(days, user!.id),
   });
 }
@@ -107,6 +108,7 @@ export function useActivities(sportType?: SportType | SportType[], limit?: numbe
   return useQuery({
     queryKey: ["activities", user?.id, sportType, limit],
     enabled: !!user,
+    staleTime: 0,
     queryFn: () => fetchActivities(user!.id, sportType, limit),
   });
 }

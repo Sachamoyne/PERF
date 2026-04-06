@@ -24,20 +24,32 @@ const sportColors: Record<string, string> = {
   strength: "hsl(262, 83%, 58%)",
 };
 
+/** Returns UTC ISO boundaries for a Paris local date (handles CET +1 / CEST +2). */
+function parisDateToUtcBounds(dateStr: string): { start: string; end: string } {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  // France: UTC+2 (CEST) April–October, UTC+1 (CET) otherwise
+  const offsetHours = month >= 4 && month <= 10 ? 2 : 1;
+  const startUTC = new Date(Date.UTC(year, month - 1, day, -offsetHours, 0, 0));
+  const endUTC = new Date(Date.UTC(year, month - 1, day, 24 - offsetHours, 0, 0) - 1);
+  return { start: startUTC.toISOString(), end: endUTC.toISOString() };
+}
+
 function useTodayWorkouts(date?: string) {
   const { user } = useAuth();
   return useQuery({
     queryKey: ["today_workouts", user?.id, date],
     enabled: !!user,
+    staleTime: 0,
     queryFn: async () => {
       if (!user) return { mode: "today" as const, workouts: [] };
-      const targetDate = date ?? new Date().toISOString().split("T")[0];
+      const targetDate = date ?? new Date().toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
+      const { start, end } = parisDateToUtcBounds(targetDate);
       const { data: todayData } = await supabase
         .from("activities")
         .select("sport_type, duration_sec, calories, start_time")
         .eq("user_id", user.id)
-        .gte("start_time", `${targetDate}T00:00:00`)
-        .lte("start_time", `${targetDate}T23:59:59`);
+        .gte("start_time", start)
+        .lte("start_time", end);
 
       if ((todayData ?? []).length > 0) {
         return { mode: "today" as const, workouts: todayData ?? [] };

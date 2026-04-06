@@ -10,33 +10,49 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
+function todayLocalStr(): string {
+  return new Date().toLocaleDateString("fr-CA", { timeZone: "Europe/Paris" });
+}
+
 export default function LogSessionDrawer() {
   const [open, setOpen] = useState(false);
   const [sport, setSport] = useState<"tennis" | "padel">("tennis");
+  const [date, setDate] = useState(todayLocalStr);
   const [duration, setDuration] = useState("60");
   const [sessionType, setSessionType] = useState<"training" | "match">("training");
   const [opponentName, setOpponentName] = useState("");
   const [matchScore, setMatchScore] = useState("");
   const [matchResult, setMatchResult] = useState<"win" | "loss">("win");
+  const [saving, setSaving] = useState(false);
   const { user } = useAuth();
   const qc = useQueryClient();
 
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user || saving) return;
+    const durationMin = parseInt(duration);
+    if (!durationMin || durationMin <= 0) { toast.error("Durée invalide"); return; }
+    setSaving(true);
+    // Build start_time as noon on the selected date (Paris time → UTC)
+    const startTime = new Date(`${date}T12:00:00`).toISOString();
     const { error } = await supabase.from("activities").insert({
       user_id: user.id,
       sport_type: sport,
-      start_time: new Date().toISOString(),
-      duration_sec: parseInt(duration) * 60,
+      start_time: startTime,
+      duration_sec: durationMin * 60,
       session_type: sessionType,
       opponent_name: sessionType === "match" ? opponentName || null : null,
       match_score: sessionType === "match" ? matchScore || null : null,
       match_result: sessionType === "match" ? matchResult : null,
     });
-    if (error) { toast.error("Erreur"); return; }
+    if (error) { toast.error("Erreur"); setSaving(false); return; }
     toast.success("Session enregistrée");
     qc.invalidateQueries({ queryKey: ["activities"] });
+    qc.invalidateQueries({ queryKey: ["today_workouts"] });
+    qc.invalidateQueries({ queryKey: ["weekly_summary"] });
+    qc.invalidateQueries({ queryKey: ["activity_heatmap"] });
     setOpen(false);
+    setSaving(false);
+    setDate(todayLocalStr());
     setDuration("60"); setSessionType("training"); setOpponentName(""); setMatchScore("");
   };
 
@@ -53,6 +69,10 @@ export default function LogSessionDrawer() {
           <DrawerTitle className="font-display text-foreground">Enregistrer une session</DrawerTitle>
         </DrawerHeader>
         <div className="px-4 space-y-4">
+          <div className="space-y-2">
+            <Label className="text-muted-foreground">Date</Label>
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-secondary border-border" />
+          </div>
           <div className="space-y-2">
             <Label className="text-muted-foreground">Sport</Label>
             <Select value={sport} onValueChange={(v) => setSport(v as "tennis" | "padel")}>
@@ -101,7 +121,9 @@ export default function LogSessionDrawer() {
           )}
         </div>
         <DrawerFooter>
-          <Button onClick={handleSubmit} className="bg-primary hover:bg-primary/80 text-primary-foreground">Enregistrer</Button>
+          <Button onClick={handleSubmit} disabled={saving} className="bg-primary hover:bg-primary/80 text-primary-foreground">
+            {saving ? "Enregistrement..." : "Enregistrer"}
+          </Button>
           <DrawerClose asChild><Button variant="ghost">Annuler</Button></DrawerClose>
         </DrawerFooter>
       </DrawerContent>

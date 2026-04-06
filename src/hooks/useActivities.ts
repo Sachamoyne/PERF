@@ -10,6 +10,7 @@ export function useActivities(sportType?: SportType | SportType[], limit?: numbe
   return useQuery({
     queryKey: ["activities", user?.id, sportType, limit],
     enabled: !!user,
+    staleTime: 0,
     queryFn: async () => {
       if (!user) return [];
       let query = supabase
