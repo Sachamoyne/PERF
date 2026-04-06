@@ -11,6 +11,7 @@ export type UserProfile = {
   height_cm: number | null;
   weight_kg: number | null;
   activity_level: ActivityLevel;
+  onboarding_completed: boolean;
 };
 
 export type UserProfileInput = {
@@ -59,10 +60,12 @@ export const EMPTY_USER_PROFILE: UserProfile = {
   height_cm: null,
   weight_kg: null,
   activity_level: DEFAULT_ACTIVITY_LEVEL,
+  onboarding_completed: false,
 };
 
 export function isUserProfileComplete(profile: UserProfile | null | undefined): profile is UserProfile {
   if (!profile) return false;
+  if (profile.onboarding_completed) return true;
   return (
     (profile.sex === "male" || profile.sex === "female") &&
     typeof profile.age === "number" &&
@@ -101,13 +104,13 @@ export function useUserProfile() {
 
       try {
         const { data, error } = await supabase
-          .from("user_profile")
-          .select("sex, age, height_cm, weight_kg, activity_level")
+          .from("profiles")
+          .select("sex, age, height_cm, weight_kg, activity_level, onboarding_completed")
           .eq("user_id", user.id)
           .maybeSingle();
 
         if (error) {
-          console.warn("[user_profile] fetch error", error);
+          console.warn("[profiles] fetch error", error);
           return {
             ...EMPTY_USER_PROFILE,
             weight_kg: latestWeight,
@@ -133,9 +136,10 @@ export function useUserProfile() {
             data.activity_level && data.activity_level in ACTIVITY_LEVEL_OPTIONS
               ? (data.activity_level as ActivityLevel)
               : DEFAULT_ACTIVITY_LEVEL,
+          onboarding_completed: data.onboarding_completed === true,
         };
       } catch (error) {
-        console.warn("[user_profile] fetch exception", error);
+        console.warn("[profiles] fetch exception", error);
         return {
           ...EMPTY_USER_PROFILE,
           weight_kg: latestWeight,
@@ -149,7 +153,7 @@ export function useUserProfile() {
       if (!user) throw new Error("Utilisateur non connecté");
 
       const { error } = await supabase
-        .from("user_profile")
+        .from("profiles")
         .upsert(
           {
             user_id: user.id,
@@ -157,6 +161,7 @@ export function useUserProfile() {
             age: profile.age,
             height_cm: profile.height_cm,
             activity_level: profile.activity_level,
+            onboarding_completed: true,
           },
           { onConflict: "user_id" }
         );

@@ -217,6 +217,48 @@ export type Database = {
         }
         Relationships: []
       }
+      nutrition_logs: {
+        Row: {
+          calories_kcal: number
+          carbs_g: number
+          created_at: string
+          date: string
+          fat_g: number
+          id: string
+          meal_type: string | null
+          notes: string | null
+          protein_g: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calories_kcal?: number
+          carbs_g?: number
+          created_at?: string
+          date?: string
+          fat_g?: number
+          id?: string
+          meal_type?: string | null
+          notes?: string | null
+          protein_g?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calories_kcal?: number
+          carbs_g?: number
+          created_at?: string
+          date?: string
+          fat_g?: number
+          id?: string
+          meal_type?: string | null
+          notes?: string | null
+          protein_g?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profile: {
         Row: {
           activity_level: string | null
@@ -256,6 +298,8 @@ export type Database = {
       profiles: {
         Row: {
           active_phase: string | null
+          activity_level: string | null
+          age: number | null
           api_key: string | null
           birth_date: string | null
           created_at: string
@@ -263,13 +307,17 @@ export type Database = {
           height_cm: number | null
           id: string
           last_sync: string | null
+          onboarding_completed: boolean | null
           phase_started_at: string | null
+          sex: string | null
           updated_at: string
           user_id: string
           weight_kg: number | null
         }
         Insert: {
           active_phase?: string | null
+          activity_level?: string | null
+          age?: number | null
           api_key?: string | null
           birth_date?: string | null
           created_at?: string
@@ -277,13 +325,17 @@ export type Database = {
           height_cm?: number | null
           id?: string
           last_sync?: string | null
+          onboarding_completed?: boolean | null
           phase_started_at?: string | null
+          sex?: string | null
           updated_at?: string
           user_id: string
           weight_kg?: number | null
         }
         Update: {
           active_phase?: string | null
+          activity_level?: string | null
+          age?: number | null
           api_key?: string | null
           birth_date?: string | null
           created_at?: string
@@ -291,7 +343,9 @@ export type Database = {
           height_cm?: number | null
           id?: string
           last_sync?: string | null
+          onboarding_completed?: boolean | null
           phase_started_at?: string | null
+          sex?: string | null
           updated_at?: string
           user_id?: string
           weight_kg?: number | null
@@ -493,7 +547,21 @@ export type Database = {
       clear_user_data: { Args: { _user_id: string }; Returns: Json }
     }
     Enums: {
-      metric_type: "hrv" | "sleep_score" | "rhr" | "body_battery" | "vo2max" | "steps" | "calories_total" | "protein" | "carbs" | "fat" | "calorie_balance" | "sleep_hours"
+      metric_type:
+        | "hrv"
+        | "sleep_score"
+        | "rhr"
+        | "body_battery"
+        | "vo2max"
+        | "steps"
+        | "calories_total"
+        | "protein"
+        | "carbs"
+        | "fat"
+        | "calorie_balance"
+        | "sleep_hours"
+        | "weight"
+        | "body_fat"
       sport_type:
         | "running"
         | "cycling"
@@ -628,7 +696,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      metric_type: ["hrv", "sleep_score", "rhr", "body_battery", "vo2max", "steps", "calories_total", "protein", "carbs", "fat", "calorie_balance", "sleep_hours"],
+      metric_type: ["hrv", "sleep_score", "rhr", "body_battery", "vo2max", "steps", "calories_total", "protein", "carbs", "fat", "calorie_balance", "sleep_hours", "weight", "body_fat"],
       sport_type: [
         "running",
         "cycling",
