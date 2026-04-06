@@ -4,6 +4,7 @@ import { Timer } from "lucide-react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const sportLabels: Record<string, string> = {
   running: "Course",
@@ -24,13 +25,17 @@ const sportColors: Record<string, string> = {
 };
 
 function useTodayWorkouts(date?: string) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["today_workouts", date],
+    queryKey: ["today_workouts", user?.id, date],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return { mode: "today" as const, workouts: [] };
       const targetDate = date ?? new Date().toISOString().split("T")[0];
       const { data: todayData } = await supabase
         .from("activities")
         .select("sport_type, duration_sec, calories, start_time")
+        .eq("user_id", user.id)
         .gte("start_time", `${targetDate}T00:00:00`)
         .lte("start_time", `${targetDate}T23:59:59`);
 
@@ -45,6 +50,7 @@ function useTodayWorkouts(date?: string) {
       const { data: latestData } = await supabase
         .from("activities")
         .select("sport_type, duration_sec, calories, start_time")
+        .eq("user_id", user.id)
         .order("start_time", { ascending: false })
         .limit(1);
 

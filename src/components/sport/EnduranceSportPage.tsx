@@ -152,6 +152,7 @@ export function EnduranceSportPage({
   accentColor,
   records: recordDefs,
 }: EnduranceSportPageProps) {
+  const { user } = useAuth();
   const { data: allActivities = [] } = useActivities(sportType);
   const { data: records = [] } = useSportRecords(sportType);
   const upsertRecord = useUpsertSportRecord(sportType);
@@ -166,12 +167,14 @@ export function EnduranceSportPage({
   const [recordNotes, setRecordNotes] = useState("");
 
   const { data: vo2Data } = useQuery({
-    queryKey: ["vo2max_latest", sportType],
-    enabled: sportType === "cycling",
+    queryKey: ["vo2max_latest", user?.id, sportType],
+    enabled: sportType === "cycling" && !!user,
     queryFn: async () => {
+      if (!user) return [];
       const { data } = await supabase
         .from("health_metrics")
         .select("value, date")
+        .eq("user_id", user.id)
         .eq("metric_type", "vo2max")
         .order("date", { ascending: false })
         .limit(2);

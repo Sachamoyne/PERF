@@ -54,21 +54,30 @@ type DataSource = "supabase"; // | "apple_health" in the future
 const DATA_SOURCE: DataSource = "supabase";
 
 // Core data fetchers
-async function fetchMetrics(days: number): Promise<HealthMetricRow[]> {
+async function fetchMetrics(days: number, userId: string): Promise<HealthMetricRow[]> {
   const since = new Date();
   since.setDate(since.getDate() - days);
   const sinceStr = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, "0")}-${String(since.getDate()).padStart(2, "0")}`;
   const { data, error } = await supabase
     .from("health_metrics")
     .select("*")
+    .eq("user_id", userId)
     .gte("date", sinceStr)
     .order("date", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }
 
-async function fetchActivities(sportType?: SportType | SportType[], limit?: number): Promise<ActivityRow[]> {
-  let query = supabase.from("activities").select("*").order("start_time", { ascending: false });
+async function fetchActivities(
+  userId: string,
+  sportType?: SportType | SportType[],
+  limit?: number
+): Promise<ActivityRow[]> {
+  let query = supabase
+    .from("activities")
+    .select("*")
+    .eq("user_id", userId)
+    .order("start_time", { ascending: false });
   if (sportType) {
     if (Array.isArray(sportType)) {
       query = query.in("sport_type", sportType);
@@ -85,28 +94,36 @@ async function fetchActivities(sportType?: SportType | SportType[], limit?: numb
 // --- Hooks ---
 
 export function useHealthMetrics(days = 30) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["health_metrics", days],
-    queryFn: () => fetchMetrics(days),
+    queryKey: ["health_metrics", days, user?.id],
+    enabled: !!user,
+    queryFn: () => fetchMetrics(days, user!.id),
   });
 }
 
 export function useActivities(sportType?: SportType | SportType[], limit?: number) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["activities", sportType, limit],
-    queryFn: () => fetchActivities(sportType, limit),
+    queryKey: ["activities", user?.id, sportType, limit],
+    enabled: !!user,
+    queryFn: () => fetchActivities(user!.id, sportType, limit),
   });
 }
 
 export function useActivityHeatmap() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["activity_heatmap"],
+    queryKey: ["activity_heatmap", user?.id],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return {} as Record<string, number>;
       const since = new Date();
       since.setDate(since.getDate() - 365);
       const { data, error } = await supabase
         .from("activities")
         .select("start_time")
+        .eq("user_id", user.id)
         .gte("start_time", since.toISOString());
       if (error) throw error;
       const counts: Record<string, number> = {};
@@ -120,15 +137,19 @@ export function useActivityHeatmap() {
 }
 
 export function useLatestMetrics() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["latest_metrics"],
+    queryKey: ["latest_metrics", user?.id],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return {} as Record<string, LatestMetric>;
       const types = ["hrv", "sleep_score", "rhr", "vo2max"] as const;
       const results: Record<string, LatestMetric> = {};
       for (const type of types) {
         const { data } = await supabase
           .from("health_metrics")
           .select("value, date, unit")
+          .eq("user_id", user.id)
           .eq("metric_type", type)
           .order("date", { ascending: false })
           .limit(7);
@@ -180,6 +201,7 @@ const sportLabels: Record<SportType, string> = {
 };
 
 export function useWeeklySportSummary(): { data: WeeklySportSummary[]; isLoading: boolean } {
+  const { user } = useAuth();
   // Semaine ISO: lundi 00:00 → dimanche 23:59 (timezone locale)
   const now = new Date();
   const weekStart = new Date(now);
@@ -194,11 +216,14 @@ export function useWeeklySportSummary(): { data: WeeklySportSummary[]; isLoading
   weekEnd.setMilliseconds(-1); // dimanche 23:59:59.999
 
   const { data: activities, isLoading } = useQuery({
-    queryKey: ["weekly_summary", weekStart.toISOString().slice(0, 10)],
+    queryKey: ["weekly_summary", user?.id, weekStart.toISOString().slice(0, 10)],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return [] as { sport_type: SportType; duration_sec: number }[];
       const { data, error } = await supabase
         .from("activities")
         .select("sport_type, duration_sec")
+        .eq("user_id", user.id)
         .gte("start_time", weekStart.toISOString())
         .lte("start_time", weekEnd.toISOString());
       if (error) throw error;

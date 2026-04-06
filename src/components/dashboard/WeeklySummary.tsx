@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { addDays, subDays } from "date-fns";
 import { Timer, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 const sportColors: Record<string, string> = {
   running: "bg-primary/15 text-primary",
@@ -29,6 +30,7 @@ function formatMinutes(min: number): string {
 }
 
 export function WeeklySummary({ date, detailPath }: { date?: string; detailPath?: string }) {
+  const { user } = useAuth();
   const targetDate = date ? new Date(date) : new Date();
   const dayOfWeek = targetDate.getDay();
   const monday = subDays(targetDate, dayOfWeek === 0 ? 6 : dayOfWeek - 1);
@@ -37,11 +39,14 @@ export function WeeklySummary({ date, detailPath }: { date?: string; detailPath?
   sunday.setHours(23, 59, 59, 999);
 
   const { data: summary = [], isLoading } = useQuery({
-    queryKey: ["weekly_summary", date, monday.toISOString().slice(0, 10)],
+    queryKey: ["weekly_summary_card", user?.id, date, monday.toISOString().slice(0, 10)],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return [];
       const { data, error } = await supabase
         .from("activities")
         .select("sport_type, duration_sec")
+        .eq("user_id", user.id)
         .gte("start_time", monday.toISOString())
         .lte("start_time", sunday.toISOString());
 

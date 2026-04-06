@@ -180,17 +180,60 @@ function useSleepSeries(days: number) {
     enabled: !!user,
     queryFn: async () => {
       if (!user) return [] as { date: string; hours: number; score: number | null }[];
-      const { data, error } = await supabase
-        .from("sleep_logs")
-        .select("date, duration_hours, score")
-        .gte("date", periodStart(days))
-        .order("date", { ascending: true });
-      if (error) throw error;
-      return (data ?? []).map((d) => ({
-        date: d.date,
-        hours: d.duration_hours ?? 0,
-        score: d.score,
-      }));
+      const since = periodStart(days);
+
+      const [sleepLogsRes, sleepMetricsRes] = await Promise.all([
+        supabase
+          .from("sleep_logs")
+          .select("date, duration_hours, score")
+          .eq("user_id", user.id)
+          .gte("date", since)
+          .order("date", { ascending: true }),
+        supabase
+          .from("health_metrics")
+          .select("date, metric_type, value, unit")
+          .eq("user_id", user.id)
+          .in("metric_type", ["sleep_hours", "sleep_score"])
+          .gte("date", since)
+          .order("date", { ascending: true }),
+      ]);
+
+      if (sleepLogsRes.error) throw sleepLogsRes.error;
+      if (sleepMetricsRes.error) throw sleepMetricsRes.error;
+
+      const mergedByDate = new Map<string, { date: string; hours: number; score: number | null }>();
+
+      for (const row of sleepLogsRes.data ?? []) {
+        if (row.duration_hours == null) continue;
+        mergedByDate.set(row.date, {
+          date: row.date,
+          hours: row.duration_hours,
+          score: row.score,
+        });
+      }
+
+      for (const row of sleepMetricsRes.data ?? []) {
+        const existing = mergedByDate.get(row.date);
+        const isHours = row.metric_type === "sleep_hours" || (row.metric_type === "sleep_score" && row.unit === "h");
+
+        if (isHours) {
+          if (existing) {
+            continue;
+          }
+          mergedByDate.set(row.date, {
+            date: row.date,
+            hours: row.value,
+            score: null,
+          });
+          continue;
+        }
+
+        if (row.metric_type === "sleep_score" && row.unit !== "h" && existing && existing.score == null) {
+          existing.score = Math.round(row.value);
+        }
+      }
+
+      return Array.from(mergedByDate.values()).sort((a, b) => a.date.localeCompare(b.date));
     },
   });
 }

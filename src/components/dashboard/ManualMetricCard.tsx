@@ -15,6 +15,7 @@ import { useUpsertHealthMetric } from "@/hooks/useUpsertHealthMetric";
 import { usePersistedChartPeriod } from "@/hooks/usePersistedChartPeriod";
 import { parseLocalDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Drawer, DrawerClose, DrawerContent,
   DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger,
@@ -82,13 +83,18 @@ function aggregateByMonth(
 }
 
 function useMetricHistory(metricType: ManualMetricType, days: number | null) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["kpi_metric", metricType, days ?? "all"],
+    queryKey: ["kpi_metric", metricType, days ?? "all", user?.id],
+    enabled: !!user,
     staleTime: 0,
     queryFn: async () => {
+      if (!user) return [] as { value: number; date: string; unit: string }[];
+
       let query = supabase
         .from("health_metrics")
         .select("value, date, unit")
+        .eq("user_id", user.id)
         .eq("metric_type", metricType as MetricType)
         .order("date", { ascending: true });
       if (days != null) {

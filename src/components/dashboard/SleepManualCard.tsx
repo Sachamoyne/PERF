@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useInsertSleepLog } from "@/hooks/useSleepLogs";
 import { usePersistedChartPeriod } from "@/hooks/usePersistedChartPeriod";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const SLEEP_COLOR = "hsl(var(--primary))";
 const SCORE_COLOR = "hsl(var(--warning))";
@@ -96,26 +97,87 @@ function aggregateByMonth(data: { duration_hours: number; score: number | null; 
 }
 
 function useSleepHistory(days: number) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["sleep_history", days],
+    queryKey: ["sleep_history", days, user?.id],
+    enabled: !!user,
     staleTime: 0,
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      const sinceStr = toLocalDateStr(since);
-      const { data, error } = await supabase
-        .from("sleep_logs")
-        .select("date, duration_hours, score, bedtime, wake_time")
-        .gte("date", sinceStr)
-        .order("date", { ascending: true });
-      if (error) throw error;
-      return (data ?? []).filter(d => d.duration_hours != null) as {
+      if (!user) return [] as {
         date: string;
         duration_hours: number;
         score: number | null;
         bedtime: string | null;
         wake_time: string | null;
       }[];
+
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+      const sinceStr = toLocalDateStr(since);
+
+      const [sleepLogsRes, sleepMetricsRes] = await Promise.all([
+        supabase
+          .from("sleep_logs")
+          .select("date, duration_hours, score, bedtime, wake_time")
+          .eq("user_id", user.id)
+          .gte("date", sinceStr)
+          .order("date", { ascending: true }),
+        supabase
+          .from("health_metrics")
+          .select("date, metric_type, value, unit")
+          .eq("user_id", user.id)
+          .in("metric_type", ["sleep_hours", "sleep_score"])
+          .gte("date", sinceStr)
+          .order("date", { ascending: true }),
+      ]);
+
+      if (sleepLogsRes.error) throw sleepLogsRes.error;
+      if (sleepMetricsRes.error) throw sleepMetricsRes.error;
+
+      type SleepRow = {
+        date: string;
+        duration_hours: number;
+        score: number | null;
+        bedtime: string | null;
+        wake_time: string | null;
+      };
+
+      const mergedByDate = new Map<string, SleepRow>();
+
+      for (const row of sleepLogsRes.data ?? []) {
+        if (row.duration_hours == null) continue;
+        mergedByDate.set(row.date, {
+          date: row.date,
+          duration_hours: row.duration_hours,
+          score: row.score,
+          bedtime: row.bedtime,
+          wake_time: row.wake_time,
+        });
+      }
+
+      for (const row of sleepMetricsRes.data ?? []) {
+        const existing = mergedByDate.get(row.date);
+        if (existing) {
+          if (existing.score == null && row.metric_type === "sleep_score" && row.unit !== "h") {
+            existing.score = Math.round(row.value);
+          }
+          continue;
+        }
+
+        const isHours = row.metric_type === "sleep_hours" || (row.metric_type === "sleep_score" && row.unit === "h");
+        if (!isHours) continue;
+
+        mergedByDate.set(row.date, {
+          date: row.date,
+          duration_hours: row.value,
+          score: null,
+          bedtime: null,
+          wake_time: null,
+        });
+      }
+
+      return Array.from(mergedByDate.values())
+        .sort((a, b) => a.date.localeCompare(b.date));
     },
   });
 }

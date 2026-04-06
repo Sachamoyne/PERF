@@ -1,14 +1,22 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { useAuth } from "./useAuth";
 
 type SportType = Database["public"]["Enums"]["sport_type"];
 
 export function useActivities(sportType?: SportType | SportType[], limit?: number) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["activities", sportType, limit],
+    queryKey: ["activities", user?.id, sportType, limit],
+    enabled: !!user,
     queryFn: async () => {
-      let query = supabase.from("activities").select("*").order("start_time", { ascending: false });
+      if (!user) return [];
+      let query = supabase
+        .from("activities")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("start_time", { ascending: false });
 
       if (sportType) {
         if (Array.isArray(sportType)) {
@@ -27,14 +35,18 @@ export function useActivities(sportType?: SportType | SportType[], limit?: numbe
 }
 
 export function useActivityHeatmap() {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["activity_heatmap"],
+    queryKey: ["activity_heatmap", user?.id],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return {};
       const since = new Date();
       since.setDate(since.getDate() - 365);
       const { data, error } = await supabase
         .from("activities")
         .select("start_time")
+        .eq("user_id", user.id)
         .gte("start_time", since.toISOString());
       if (error) throw error;
 

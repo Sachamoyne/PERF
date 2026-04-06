@@ -594,9 +594,25 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
         total_elevation_gain: w.elevationGain ?? null,
       }));
 
-      const { error } = await supabase.from("activities").insert(rows);
-      if (error) console.error("[appleHealth] Activities insert error:", error);
-      else importedWorkouts = rows.length;
+      // Insert row-by-row so one duplicate never blocks the whole batch.
+      // This is important when DB has a strict no-duplicate index.
+      let insertedCount = 0;
+      for (const row of rows) {
+        // eslint-disable-next-line no-await-in-loop
+        const { error } = await supabase.from("activities").insert(row);
+        if (error) {
+          const maybeCode = (error as { code?: string }).code;
+          if (maybeCode === "23505") {
+            // duplicate key violation => already present, skip
+            continue;
+          }
+          console.error("[appleHealth] Activities insert error:", error);
+          continue;
+        }
+        insertedCount += 1;
+      }
+
+      importedWorkouts = insertedCount;
       console.log("[appleHealth] ✓ Workouts :", importedWorkouts);
     }
 

@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { addDays, format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { parseLocalDate } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const SMR_KCAL = 2100;
 const PARIS_TIMEZONE = "Europe/Paris";
@@ -70,9 +71,12 @@ async function fetchNativeEnergyMaps(startStr: string, endStr: string): Promise<
 }
 
 function useCalorieBalance(days = 14, date?: string) {
+  const { user } = useAuth();
   return useQuery({
-    queryKey: ["calorie_balance", days, date],
+    queryKey: ["calorie_balance", user?.id, days, date],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return [];
       const targetDate = date ? parseLocalDate(date) : new Date();
       const start = date ? subDays(targetDate, 7) : subDays(targetDate, days);
       const end = date ? addDays(targetDate, 7) : targetDate;
@@ -82,6 +86,7 @@ function useCalorieBalance(days = 14, date?: string) {
       const { data: foodRows } = await supabase
         .from("health_metrics")
         .select("date, value")
+        .eq("user_id", user.id)
         .eq("metric_type", "calories_total")
         .gte("date", startStr)
         .lte("date", endStr)
@@ -90,6 +95,7 @@ function useCalorieBalance(days = 14, date?: string) {
       const { data: activityRows } = await supabase
         .from("activities")
         .select("start_time, calories")
+        .eq("user_id", user.id)
         .gte("start_time", `${startStr}T00:00:00`)
         .lte("start_time", `${endStr}T23:59:59.999`);
 

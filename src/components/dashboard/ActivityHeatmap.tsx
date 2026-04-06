@@ -7,19 +7,24 @@ import { fr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { parseLocalDate } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 
 function useMonthlyHeatmap(month: Date) {
+  const { user } = useAuth();
   const start = startOfMonth(month);
   const end = endOfMonth(month);
 
   return useQuery({
-    queryKey: ["monthly_heatmap", format(start, "yyyy-MM")],
+    queryKey: ["monthly_heatmap", user?.id, format(start, "yyyy-MM")],
+    enabled: !!user,
     queryFn: async () => {
+      if (!user) return {} as Record<string, number>;
       const { data, error } = await supabase
         .from("activities")
         .select("start_time")
+        .eq("user_id", user.id)
         .gte("start_time", start.toISOString())
         .lte("start_time", end.toISOString());
       if (error) throw error;
