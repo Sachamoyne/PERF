@@ -11,26 +11,20 @@ import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isSyncUploadAllowed } from "@/lib/syncConsent";
 
+const MIN_SYNC_INTERVAL_MS = 30 * 60 * 1000; // 30 min entre deux syncs foreground
+
 function useAutoSync() {
   const { user } = useAuth();
   const { data: syncStatus } = useSyncStatus();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!user) return;
-
-    // Sync automatique si jamais synchronisé ou sync > 6h
-    const shouldSync = !syncStatus?.lastSync ||
-      (Date.now() - syncStatus.lastSync.getTime()) > 6 * 60 * 60 * 1000;
-
-    if (!shouldSync) return;
+  const runSync = (userId: string, reason: string) => {
     if (!isSyncUploadAllowed()) return;
     const plt = (() => { try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; } catch { return "web"; } })();
     if (plt !== "ios" && plt !== "android") return;
 
-    console.log("[autoSync] Démarrage sync automatique...");
-
-    syncAppleHealth(user.id)
+    console.log(`[autoSync] Démarrage sync (${reason})...`);
+    syncAppleHealth(userId)
       .then(async (result) => {
         console.log("[autoSync] ✓ Sync terminé:", result.importedSamples);
         await refreshDashboardAfterSync(queryClient);
@@ -38,7 +32,34 @@ function useAutoSync() {
       .catch((err) => {
         console.warn("[autoSync] Sync échoué (silencieux):", err.message);
       });
-  }, [queryClient, user?.id, syncStatus?.lastSync?.getTime()]);
+  };
+
+  // Sync au montage si jamais synchronisé ou sync > 6h
+  useEffect(() => {
+    if (!user) return;
+    const shouldSync = !syncStatus?.lastSync ||
+      (Date.now() - syncStatus.lastSync.getTime()) > 6 * 60 * 60 * 1000;
+    if (shouldSync) runSync(user.id, "montage");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, syncStatus?.lastSync?.getTime()]);
+
+  // Sync au retour au premier plan (visibilitychange) si > 30 min depuis le dernier sync
+  useEffect(() => {
+    if (!user) return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      const lastSync = syncStatus?.lastSync;
+      const elapsed = lastSync ? Date.now() - lastSync.getTime() : Infinity;
+      if (elapsed >= MIN_SYNC_INTERVAL_MS) {
+        runSync(user.id, "retour premier plan");
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, syncStatus?.lastSync?.getTime()]);
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
