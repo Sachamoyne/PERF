@@ -9,8 +9,5 @@ verify_jwt = false
 [functions.apple-health-sync]
 verify_jwt = false
 
-[functions.ai-coach]
-verify_jwt = true
-
 [functions.ai-import]
 verify_jwt = true

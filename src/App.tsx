@@ -17,7 +17,6 @@ import Racket from "./pages/Racket";
 import Strength from "./pages/Strength";
 import SportMenu from "./pages/SportMenu";
 import Journal from "./pages/Journal";
-import CoachPage from "./pages/CoachPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 import OnboardingPage from "./pages/OnboardingPage";
@@ -109,7 +108,6 @@ function ProtectedRoutes() {
         <Route path="/strength" element={<Strength />} />
         <Route path="/sport" element={<SportMenu />} />
         <Route path="/journal" element={<Journal />} />
-        <Route path="/coach" element={<CoachPage />} />
         <Route path="/details/calories" element={<CaloriesDetailPage />} />
         <Route path="/details/weight" element={<WeightDetailPage />} />
         <Route path="/details/body-fat" element={<BodyFatDetailPage />} />

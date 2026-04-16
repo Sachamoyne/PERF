@@ -1,10 +1,9 @@
-import { House, Activity, Brain, BookOpen, Settings } from "lucide-react";
+import { House, Activity, BookOpen, Settings } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const tabs = [
   { key: "dashboard", label: "Dashboard", icon: House, path: "/" },
   { key: "sport", label: "Sport", icon: Activity, path: "/sport" },
-  { key: "coach", label: "Coach", icon: Brain, path: "/coach" },
   { key: "mental", label: "Mental", icon: BookOpen, path: "/journal" },
   { key: "settings", label: "Paramètres", icon: Settings, path: "/settings" },
 ] as const;
@@ -30,7 +29,7 @@ export function BottomTabBar() {
         height: "calc(64px + env(safe-area-inset-bottom, 0px))",
       }}
     >
-      <div className="grid h-16 grid-cols-5 items-center">
+      <div className="grid h-16 grid-cols-4 items-center">
         {tabs.map((tab) => {
           const active = isTabActive(location.pathname, tab.path);
           const Icon = tab.icon;
