@@ -1,16 +1,9 @@
 -- Hotfix migration for production environments where local migrations were not fully applied.
 -- Safe to re-run.
-
--- Keep metric enum aligned with app code.
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'steps';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'calories_total';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'protein';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'carbs';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'fat';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'calorie_balance';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'sleep_hours';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'weight';
-ALTER TYPE public.metric_type ADD VALUE IF NOT EXISTS 'body_fat';
+-- NOTE:
+-- metric_type enum values are managed in a dedicated migration
+-- (20260406151000_add_metric_type_values.sql) to avoid enum visibility
+-- issues when replayed in a single transaction.
 
 -- Ensure profiles has onboarding/profile fields expected by the frontend.
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS sex text;

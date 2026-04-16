@@ -3,115 +3,154 @@ import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, Cell, ResponsiveContainer, XAxis, Tooltip, ReferenceLine } from "recharts";
 import { Scale } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { addDays, format, subDays } from "date-fns";
+import { format, subDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { parseLocalDate } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { usePersistedChartPeriod } from "@/hooks/usePersistedChartPeriod";
 
-const SMR_KCAL = 2100;
-const PARIS_TIMEZONE = "Europe/Paris";
+const PERIODS = [
+  { label: "7j", days: 7 },
+  { label: "1m", days: 30 },
+  { label: "3m", days: 90 },
+  { label: "1a", days: 365 },
+  { label: "Tout", days: null },
+] as const;
 
-function toParisDateStr(isoString: string): string {
-  return new Date(isoString).toLocaleDateString("fr-CA", { timeZone: PARIS_TIMEZONE });
-}
+type BalancePoint = {
+  date: string;
+  label: string;
+  food: number;
+  sport: number;
+  smr: number | null;
+  value: number | null;
+  smrSource: string;
+  sportSource: string;
+};
 
-async function fetchNativeEnergyMaps(startStr: string, endStr: string): Promise<{
-  basalByDay: Record<string, number>;
-  activeByDay: Record<string, number>;
-}> {
-  try {
-    const platform = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() ?? "web";
-    if (platform !== "ios" && platform !== "android") {
-      return { basalByDay: {}, activeByDay: {} };
-    }
+function aggregateMonthlyAverage(points: BalancePoint[]): BalancePoint[] {
+  const byMonth = new Map<string, BalancePoint[]>();
 
-    const { Health } = await import("@capgo/capacitor-health");
-    const healthApi = Health as unknown as {
-      queryAggregated: (params: {
-        dataType: string;
-        startDate: string;
-        endDate: string;
-        bucket: "day";
-        aggregation: "sum";
-      }) => Promise<{ samples?: Array<{ startDate: string; value: number | string }> }>;
-    };
-    const [basal, active] = await Promise.all([
-      healthApi.queryAggregated({
-        dataType: "basalCalories",
-        startDate: new Date(`${startStr}T00:00:00`).toISOString(),
-        endDate: new Date(`${endStr}T23:59:59.999`).toISOString(),
-        bucket: "day",
-        aggregation: "sum",
-      }),
-      healthApi.queryAggregated({
-        dataType: "calories",
-        startDate: new Date(`${startStr}T00:00:00`).toISOString(),
-        endDate: new Date(`${endStr}T23:59:59.999`).toISOString(),
-        bucket: "day",
-        aggregation: "sum",
-      }),
-    ]);
-
-    const basalByDay: Record<string, number> = {};
-    for (const s of basal?.samples ?? []) {
-      const value = Number(s.value);
-      if (Number.isFinite(value)) basalByDay[toParisDateStr(s.startDate)] = value;
-    }
-
-    const activeByDay: Record<string, number> = {};
-    for (const s of active?.samples ?? []) {
-      const value = Number(s.value);
-      if (Number.isFinite(value)) activeByDay[toParisDateStr(s.startDate)] = value;
-    }
-
-    return { basalByDay, activeByDay };
-  } catch {
-    return { basalByDay: {}, activeByDay: {} };
+  for (const point of points) {
+    const monthKey = point.date.slice(0, 7);
+    const bucket = byMonth.get(monthKey);
+    if (bucket) bucket.push(point);
+    else byMonth.set(monthKey, [point]);
   }
+
+  return Array.from(byMonth.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([monthKey, bucket]) => {
+      const avg = (values: number[]) => Math.round(values.reduce((s, v) => s + v, 0) / values.length);
+      const avgNullable = (values: Array<number | null>) => {
+        const filtered = values.filter((v): v is number => v != null);
+        return filtered.length > 0 ? avg(filtered) : null;
+      };
+
+      const [year, month] = monthKey.split("-");
+      const monthDate = new Date(Number(year), Number(month) - 1, 1);
+
+      return {
+        date: `${monthKey}-01`,
+        label: monthDate.toLocaleDateString("fr-FR", { month: "short" }),
+        food: avg(bucket.map((p) => p.food)),
+        sport: avg(bucket.map((p) => p.sport)),
+        smr: avgNullable(bucket.map((p) => p.smr)),
+        value: avgNullable(bucket.map((p) => p.value)),
+        smrSource: bucket.some((p) => p.smrSource === "server_iphone") ? "server_iphone" : "missing",
+        sportSource: bucket.some((p) => p.sportSource === "server_iphone") ? "server_iphone" : "activities_workouts",
+      };
+    });
 }
 
-function useCalorieBalance(days = 14, date?: string) {
+function useCalorieBalance(days: number | null, date?: string) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ["calorie_balance", user?.id, days, date],
+    queryKey: ["calorie_balance", user?.id, days ?? "all", date],
     enabled: !!user,
     queryFn: async () => {
       if (!user) return [];
       const targetDate = date ? parseLocalDate(date) : new Date();
-      const start = date ? subDays(targetDate, 7) : subDays(targetDate, days);
-      const end = date ? addDays(targetDate, 7) : targetDate;
-      const startStr = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+      const end = targetDate;
+      const start = days == null
+        ? null
+        : subDays(targetDate, Math.max(0, days - 1));
+      const startStr = start
+        ? `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`
+        : null;
       const endStr = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
 
-      const { data: foodRows } = await supabase
+      let foodQuery = supabase
         .from("health_metrics")
         .select("date, value")
         .eq("user_id", user.id)
         .eq("metric_type", "calories_total")
-        .gte("date", startStr)
         .lte("date", endStr)
         .order("date", { ascending: true });
+      if (startStr) foodQuery = foodQuery.gte("date", startStr);
+      const { data: foodRows } = await foodQuery;
 
-      const { data: activityRows } = await supabase
+      let balanceQuery = supabase
+        .from("health_metrics")
+        .select("date, value")
+        .eq("user_id", user.id)
+        .eq("metric_type", "calorie_balance")
+        .lte("date", endStr);
+      if (startStr) balanceQuery = balanceQuery.gte("date", startStr);
+      const { data: balanceRows } = await balanceQuery;
+
+      let smrQuery = supabase
+        .from("health_metrics")
+        .select("date, value")
+        .eq("user_id", user.id)
+        .eq("metric_type", "calorie_smr")
+        .lte("date", endStr);
+      if (startStr) smrQuery = smrQuery.gte("date", startStr);
+      const { data: smrRows } = await smrQuery;
+
+      let sportQuery = supabase
+        .from("health_metrics")
+        .select("date, value")
+        .eq("user_id", user.id)
+        .eq("metric_type", "calorie_sport")
+        .lte("date", endStr);
+      if (startStr) sportQuery = sportQuery.gte("date", startStr);
+      const { data: sportRows } = await sportQuery;
+
+      let activityQuery = supabase
         .from("activities")
         .select("start_time, calories")
         .eq("user_id", user.id)
-        .gte("start_time", `${startStr}T00:00:00`)
         .lte("start_time", `${endStr}T23:59:59.999`);
-
-      const { basalByDay, activeByDay } = await fetchNativeEnergyMaps(startStr, endStr);
+      if (startStr) activityQuery = activityQuery.gte("start_time", `${startStr}T00:00:00`);
+      const { data: activityRows } = await activityQuery;
 
       const sportByDay: Record<string, number> = {};
       for (const row of activityRows ?? []) {
-        const day = toParisDateStr(row.start_time);
+        const day = row.start_time.split("T")[0];
         sportByDay[day] = (sportByDay[day] ?? 0) + (row.calories ?? 0);
       }
 
-      const byDay = (foodRows ?? []).map((row) => {
+      const balanceByDay: Record<string, number> = {};
+      for (const row of balanceRows ?? []) {
+        balanceByDay[row.date] = Math.round(row.value);
+      }
+
+      const smrByDay: Record<string, number> = {};
+      for (const row of smrRows ?? []) {
+        smrByDay[row.date] = Math.round(row.value);
+      }
+
+      const sportMetricByDay: Record<string, number> = {};
+      for (const row of sportRows ?? []) {
+        sportMetricByDay[row.date] = Math.round(row.value);
+      }
+
+      const byDay: BalancePoint[] = (foodRows ?? []).map((row) => {
         const food = Math.round(row.value);
-        const sport = Math.round(activeByDay[row.date] ?? (sportByDay[row.date] ?? 0));
-        const smr = Math.round(basalByDay[row.date] ?? SMR_KCAL);
-        const value = food > 0 ? Math.round(food - (smr + sport)) : null;
+        const sport = sportMetricByDay[row.date] ?? Math.round(sportByDay[row.date] ?? 0);
+        const smr = smrByDay[row.date] ?? null;
+        const value = balanceByDay[row.date] ?? (food > 0 && smr != null ? Math.round(food - (smr + sport)) : null);
         return {
           date: row.date,
           label: format(parseLocalDate(row.date), "dd MMM", { locale: fr }),
@@ -119,31 +158,45 @@ function useCalorieBalance(days = 14, date?: string) {
           sport,
           smr,
           value,
-          smrSource: basalByDay[row.date] != null ? "healthkit_basalCalories" : "fallback_constant",
-          sportSource: activeByDay[row.date] != null ? "healthkit_calories(active)" : "activities_workouts",
+          smrSource: smrByDay[row.date] != null ? "server_iphone" : "missing",
+          sportSource: sportMetricByDay[row.date] != null ? "server_iphone" : "activities_workouts",
         };
       });
 
-      const debugDate = date ?? toParisDateStr(new Date().toISOString());
-      const debugRow = byDay.find((d) => d.date === debugDate);
+      const shouldAggregateMonthly = days == null || days >= 90;
+      const series = shouldAggregateMonthly ? aggregateMonthlyAverage(byDay) : byDay;
+
+      const debugDate = date ?? new Date().toISOString().slice(0, 10);
+      const debugRow = series.find((d) => d.date === debugDate) ?? series.at(-1);
       console.log("[calorieBalanceCard][debug]", {
         date: debugDate,
-        smr: debugRow?.smr ?? SMR_KCAL,
+        smr: debugRow?.smr ?? null,
         sport: debugRow?.sport ?? 0,
         food: debugRow?.food ?? 0,
         result: debugRow?.value ?? null,
-        smrSource: debugRow?.smrSource ?? "fallback_constant",
+        smrSource: debugRow?.smrSource ?? "missing",
         sportSource: debugRow?.sportSource ?? "activities_workouts",
+        monthly: shouldAggregateMonthly,
       });
 
-      return byDay;
+      return series;
     },
   });
 }
 
 export function CalorieBalanceCard({ date, detailPath }: { date?: string; detailPath?: string }) {
   const navigate = useNavigate();
-  const { data = [], isLoading } = useCalorieBalance(14, date);
+  const [periodIdx, setPeriodIdx] = usePersistedChartPeriod("calorie_balance", PERIODS, 1);
+  const period = PERIODS[periodIdx];
+  const { data = [], isLoading } = useCalorieBalance(period.days, date);
+
+  const tickInterval = (() => {
+    const len = data.filter((d) => d.value !== null).length;
+    if (len <= 10) return 0;
+    if (len <= 40) return 4;
+    if (len <= 120) return 13;
+    return Math.max(1, Math.floor(len / 14));
+  })();
 
   const latest = date ? data.find((d) => d.date === date) : data.at(-1);
   const latestValue = latest?.food && latest.food > 0 ? latest.value : null;
@@ -185,8 +238,10 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
       <div className="text-[10px] text-muted-foreground">
         {isLoading
           ? ""
-          : latest?.food && latest.food > 0
+          : latest?.food && latest.food > 0 && latest.smr != null
             ? `SMR ${latest.smr} + sport ${latest.sport} / food ${latest.food}`
+            : latest?.food && latest.food > 0
+            ? `SMR — + sport ${latest.sport} / food ${latest.food}`
             : "Aucune calorie food enregistrée"}
       </div>
 
@@ -205,6 +260,7 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
                 stroke="hsl(var(--muted-foreground))"
                 tickLine={false}
                 axisLine={false}
+                interval={tickInterval}
               />
               <Tooltip
                 contentStyle={{
@@ -235,6 +291,19 @@ export function CalorieBalanceCard({ date, detailPath }: { date?: string; detail
             </BarChart>
           </ResponsiveContainer>
         )}
+      </div>
+
+      <div className="flex gap-1 rounded-lg bg-secondary p-0.5 w-fit">
+        {PERIODS.map((p, idx) => (
+          <button
+            key={p.label}
+            type="button"
+            onClick={() => setPeriodIdx(idx)}
+            className={`period-pill ${idx === periodIdx ? "period-pill-active" : ""}`}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
     </div>
   );

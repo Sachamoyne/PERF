@@ -4,22 +4,21 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useSyncStatus } from "@/hooks/useSyncStatus";
 import { syncAppleHealth } from "@/services/appleHealth";
+import type { AppleHealthSyncResult } from "@/services/appleHealth";
 import { Button } from "@/components/ui/button";
 import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
 import { isSyncUploadAllowed } from "@/lib/syncConsent";
+import { isIphoneSourceDevice } from "@/lib/platform";
+
+type SyncActionResult =
+  | { kind: "iphone"; data: AppleHealthSyncResult }
+  | { kind: "cloud" };
 
 function useApplePlatform() {
   const [isIos, setIsIos] = useState(false);
 
   useEffect(() => {
-    try {
-      const ua = navigator.userAgent || "";
-      const isAppleDevice = /iPhone|iPad|iPod/.test(ua);
-      const hasCapacitor = typeof window !== "undefined" && !!(window as any).Capacitor;
-      setIsIos(isAppleDevice || hasCapacitor);
-    } catch {
-      setIsIos(false);
-    }
+    setIsIos(isIphoneSourceDevice());
   }, []);
 
   return { isIos };
@@ -31,15 +30,19 @@ export function SyncStatusCard() {
   const { isIos } = useApplePlatform();
   const queryClient = useQueryClient();
 
-  const mutation = useMutation({
+  const mutation = useMutation<SyncActionResult, Error>({
     mutationFn: async () => {
-      // Guard explicite : ne jamais appeler HealthKit sans session valide
       if (!user) throw new Error("Non authentifié — reconnecte-toi avant de synchroniser.");
-      if (!isSyncUploadAllowed()) throw new Error("Synchronisation desactivee dans les parametres.");
-      return syncAppleHealth(user.id);
-    },
-    onSuccess: async () => {
+
+      if (isIphoneSourceDevice() && isSyncUploadAllowed()) {
+        const data = await syncAppleHealth(user.id);
+        await refreshDashboardAfterSync(queryClient);
+        return { kind: "iphone", data };
+      }
+
       await refreshDashboardAfterSync(queryClient);
+      await new Promise((resolve) => setTimeout(resolve, 450));
+      return { kind: "cloud" };
     },
   });
 
@@ -65,8 +68,8 @@ export function SyncStatusCard() {
       </div>
 
       <div className="flex items-center gap-3">
-        {mutation.isSuccess && !isSyncing && (() => {
-          const d = mutation.data;
+        {mutation.isSuccess && !isSyncing && mutation.data?.kind === "iphone" && (() => {
+          const d = mutation.data.data;
           const diag = d?.diagnosticReport;
           const auth = diag?.permissions.authorized ?? [];
           const s = diag?.samples;
@@ -82,6 +85,9 @@ export function SyncStatusCard() {
             </div>
           );
         })()}
+        {mutation.isSuccess && !isSyncing && mutation.data?.kind === "cloud" && (
+          <span className="text-xs text-primary/80">Données cloud actualisées</span>
+        )}
         {mutation.isError && !isSyncing && (
           <span className="text-xs text-destructive/80">
             {(mutation.error as Error).message || "Erreur de synchronisation"}
@@ -97,7 +103,7 @@ export function SyncStatusCard() {
             <Loader2
               className={`h-4 w-4 ${isSyncing ? "animate-spin" : "opacity-40 group-hover:opacity-100 transition-opacity"}`}
             />
-            {isSyncing ? "Sync en cours..." : "Sync Now"}
+            {isSyncing ? "Sync en cours..." : isIos ? "Sync iPhone" : "Actualiser"}
           </span>
         </Button>
       </div>

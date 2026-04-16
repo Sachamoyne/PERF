@@ -660,7 +660,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      metric_type: ["hrv", "sleep_score", "rhr", "body_battery", "vo2max", "steps", "calories_total", "protein", "carbs", "fat", "calorie_balance", "sleep_hours", "weight", "body_fat"],
+      metric_type: ["hrv", "sleep_score", "rhr", "body_battery", "vo2max", "steps", "calories_total", "protein", "carbs", "fat", "calorie_balance", "calorie_smr", "calorie_sport", "sleep_hours", "weight", "body_fat"],
       sport_type: [
         "running",
         "cycling",

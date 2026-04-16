@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { computeAndSaveCalorieBalance } from "@/services/calorieBalance";
 import { getSyncConsent, isSyncUploadAllowed } from "@/lib/syncConsent";
+import { isIphoneSourceDevice } from "@/lib/platform";
 const DEV = import.meta.env.DEV;
 
 export interface DiagnosticReport {
@@ -148,12 +149,8 @@ export async function syncAppleHealth(userId: string): Promise<AppleHealthSyncRe
   if (consent === "refused") {
     throw new Error("Synchronisation desactivee (donnees locales uniquement).");
   }
-  const platform = (() => {
-    try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; }
-    catch { return "web"; }
-  })();
-  if (platform !== "ios" && platform !== "android") {
-    if (DEV) console.info("[appleHealth] Sync ignoré sur browser — platform:", platform);
+  if (!isIphoneSourceDevice()) {
+    if (DEV) console.info("[appleHealth] Sync ignoré: appareil non-source (iPhone requis)");
     return {
       importedSamples: 0,
       importedHrv: 0,

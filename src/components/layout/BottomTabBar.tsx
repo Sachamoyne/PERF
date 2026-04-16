@@ -1,10 +1,11 @@
-import { House, Activity, Brain, Settings } from "lucide-react";
+import { House, Activity, Brain, BookOpen, Settings } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const tabs = [
   { key: "dashboard", label: "Dashboard", icon: House, path: "/" },
   { key: "sport", label: "Sport", icon: Activity, path: "/sport" },
-  { key: "mental", label: "Mental", icon: Brain, path: "/journal" },
+  { key: "coach", label: "Coach", icon: Brain, path: "/coach" },
+  { key: "mental", label: "Mental", icon: BookOpen, path: "/journal" },
   { key: "settings", label: "Paramètres", icon: Settings, path: "/settings" },
 ] as const;
 
@@ -22,10 +23,14 @@ export function BottomTabBar() {
 
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-[80] border-t border-white/10 bg-[rgba(17,17,17,0.92)] backdrop-blur-[20px] md:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", height: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+      className="fixed inset-x-0 bottom-0 z-[80] border-t bg-white md:hidden"
+      style={{
+        borderTopColor: "#EEEEEE",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        height: "calc(64px + env(safe-area-inset-bottom, 0px))",
+      }}
     >
-      <div className="grid h-16 grid-cols-4 items-center">
+      <div className="grid h-16 grid-cols-5 items-center">
         {tabs.map((tab) => {
           const active = isTabActive(location.pathname, tab.path);
           const Icon = tab.icon;
@@ -36,11 +41,10 @@ export function BottomTabBar() {
               onClick={() => navigate(tab.path)}
               className="relative flex h-full flex-col items-center justify-center gap-0.5"
             >
-              <Icon className={`h-[22px] w-[22px] ${active ? "text-primary" : "text-[#555555]"}`} />
-              <span className={`text-[10px] leading-none ${active ? "text-primary" : "text-[#555555]"}`}>
+              <Icon className="h-[22px] w-[22px]" style={{ color: active ? "#00C853" : "#AAAAAA" }} />
+              <span className="text-[10px] leading-none" style={{ color: active ? "#00C853" : "#AAAAAA" }}>
                 {tab.label}
               </span>
-              {active ? <span className="mt-0.5 h-1 w-1 rounded-full bg-primary" /> : null}
             </button>
           );
         })}

@@ -28,6 +28,11 @@ function phaseWeightLabel(min: number, max: number) {
   return `Objectif poids: ${min > 0 ? "+" : ""}${min} à ${max > 0 ? "+" : ""}${max} kg/mois`;
 }
 
+function toErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 export default function OnboardingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -110,8 +115,8 @@ export default function OnboardingPage() {
         activity_level: activityLevel,
       });
       return true;
-    } catch (e: any) {
-      toast.error(e?.message ?? "Impossible d'enregistrer ton profil");
+    } catch (error: unknown) {
+      toast.error(toErrorMessage(error, "Impossible d'enregistrer ton profil"));
       return false;
     }
   };
@@ -132,8 +137,8 @@ export default function OnboardingPage() {
     if (step === "phase") {
       try {
         await setActivePhase(selectedPhase);
-      } catch (e: any) {
-        toast.error(e?.message ?? "Impossible d'enregistrer la phase");
+      } catch (error: unknown) {
+        toast.error(toErrorMessage(error, "Impossible d'enregistrer la phase"));
         return;
       }
 
@@ -167,8 +172,8 @@ export default function OnboardingPage() {
       persistOnboardingDone();
       toast.success("Apple Santé connecté");
       navigate("/", { replace: true });
-    } catch (e: any) {
-      toast.error(e?.message ?? "Impossible d'importer Apple Santé");
+    } catch (error: unknown) {
+      toast.error(toErrorMessage(error, "Impossible d'importer Apple Santé"));
     }
     setSyncingHealth(false);
   };
@@ -188,10 +193,10 @@ export default function OnboardingPage() {
   const showHealth = step === "health";
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-xl space-y-4">
-        <div className="glass-card p-6 space-y-4">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-4xl space-y-4">
+        <div className="glass-card p-6 md:p-8 space-y-5">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {!isEditMode ? (
               <>
                 <span className={showWelcome ? "text-foreground" : ""}>1. Bienvenue</span>
@@ -225,50 +230,52 @@ export default function OnboardingPage() {
             <div className="space-y-4">
               <h1 className="text-xl font-display font-bold text-foreground">Ton profil</h1>
 
-              <div className="space-y-2">
-                <Label>Sexe</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className={`rounded-lg border p-3 text-sm ${sex === "male" ? "border-primary bg-primary/10" : "border-border"}`}
-                    onClick={() => setSex("male")}
-                  >
-                    Homme
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-lg border p-3 text-sm ${sex === "female" ? "border-primary bg-primary/10" : "border-border"}`}
-                    onClick={() => setSex("female")}
-                  >
-                    Femme
-                  </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Sexe</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      className={`rounded-lg border p-3 text-sm ${sex === "male" ? "border-primary bg-primary/10" : "border-border"}`}
+                      onClick={() => setSex("male")}
+                    >
+                      Homme
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-lg border p-3 text-sm ${sex === "female" ? "border-primary bg-primary/10" : "border-border"}`}
+                      onClick={() => setSex("female")}
+                    >
+                      Femme
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label>Âge: {age} ans</Label>
-                <Input type="range" min={10} max={80} value={age} onChange={(e) => setAge(Number(e.target.value))} />
-              </div>
+                <div className="space-y-2">
+                  <Label>Âge: {age} ans</Label>
+                  <Input type="range" min={10} max={80} value={age} onChange={(e) => setAge(Number(e.target.value))} />
+                </div>
 
-              <div className="space-y-2">
-                <Label>Taille: {heightCm} cm</Label>
-                <Input type="range" min={140} max={220} value={heightCm} onChange={(e) => setHeightCm(Number(e.target.value))} />
-              </div>
+                <div className="space-y-2">
+                  <Label>Taille: {heightCm} cm</Label>
+                  <Input type="range" min={140} max={220} value={heightCm} onChange={(e) => setHeightCm(Number(e.target.value))} />
+                </div>
 
-              <div className="space-y-2">
-                <Label>Niveau d'activité</Label>
-                <Select value={activityLevel} onValueChange={(v) => setActivityLevel(v as ActivityLevel)}>
-                  <SelectTrigger className="bg-secondary border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ACTIVITY_LEVEL_OPTIONS).map(([key, cfg]) => (
-                      <SelectItem key={key} value={key}>
-                        {cfg.label} ({cfg.description})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Label>Niveau d'activité</Label>
+                  <Select value={activityLevel} onValueChange={(v) => setActivityLevel(v as ActivityLevel)}>
+                    <SelectTrigger className="bg-secondary border-border">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.entries(ACTIVITY_LEVEL_OPTIONS).map(([key, cfg]) => (
+                        <SelectItem key={key} value={key}>
+                          {cfg.label} ({cfg.description})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <Button onClick={goToNext} disabled={isSavingProfile}>
@@ -286,7 +293,7 @@ export default function OnboardingPage() {
                 </p>
               )}
 
-              <div className="grid grid-cols-1 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {(Object.values(TRAINING_PHASES) as Array<(typeof TRAINING_PHASES)[TrainingPhaseKey]>).map((phaseCfg) => (
                   <button
                     key={phaseCfg.key}

@@ -323,6 +323,7 @@ export default function Strength() {
           </div>
 
           <LogbookView
+            key={selectedActivity.id}
             sessionId={linkedSessionId ?? "__pending__"}
             activityId={selectedActivity.id}
             onSessionCreated={(id) => setActiveSessionId(id)}
@@ -393,10 +394,13 @@ function LogbookView({
   );
 
   useEffect(() => {
-    if (sessionId !== "__pending__") {
-      setResolvedSessionId(sessionId);
+    if (sessionId === "__pending__") {
+      // New activity without linked session: drop stale session from previous detail view.
+      setResolvedSessionId(null);
+      return;
     }
-  }, [sessionId]);
+    setResolvedSessionId(sessionId);
+  }, [sessionId, activityId]);
 
   const effectiveSessionId = sessionId === "__pending__" ? resolvedSessionId : sessionId;
   const session = effectiveSessionId

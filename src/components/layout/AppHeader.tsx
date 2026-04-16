@@ -8,6 +8,7 @@ import { syncAppleHealth } from "@/services/appleHealth";
 import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isSyncUploadAllowed } from "@/lib/syncConsent";
+import { isIphoneSourceDevice } from "@/lib/platform";
 
 export function AppHeader() {
   const { user } = useAuth();
@@ -19,13 +20,13 @@ export function AppHeader() {
 
   const handleSync = async () => {
     if (!user || isSyncing) return;
-    if (!isSyncUploadAllowed()) return;
-    const plt = (() => { try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; } catch { return "web"; } })();
-    if (plt !== "ios" && plt !== "android") return;
     setIsSyncing(true);
     try {
-      await syncAppleHealth(user.id);
+      if (isIphoneSourceDevice() && isSyncUploadAllowed()) {
+        await syncAppleHealth(user.id);
+      }
       await refreshDashboardAfterSync(queryClient);
+      await new Promise((resolve) => setTimeout(resolve, 450));
     } catch {
       // silencieux
     } finally {

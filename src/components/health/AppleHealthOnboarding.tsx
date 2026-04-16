@@ -6,11 +6,10 @@ import { syncAppleHealth } from "@/services/appleHealth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { isIphoneSourceDevice } from "@/lib/platform";
 
 function isIosLike() {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
-  return /iPhone|iPad|iPod/.test(ua) || !!(window as any).Capacitor;
+  return isIphoneSourceDevice();
 }
 
 /** Retourne true si le message d'erreur indique un refus explicite des permissions. */

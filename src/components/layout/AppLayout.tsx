@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
@@ -10,6 +10,7 @@ import { syncAppleHealth } from "@/services/appleHealth";
 import { refreshDashboardAfterSync } from "@/lib/syncRefresh";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { isSyncUploadAllowed } from "@/lib/syncConsent";
+import { isIphoneSourceDevice } from "@/lib/platform";
 
 const MIN_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 min entre deux syncs foreground
 
@@ -17,11 +18,11 @@ function useAutoSync() {
   const { user } = useAuth();
   const { data: syncStatus } = useSyncStatus();
   const queryClient = useQueryClient();
+  const lastSeenSyncAtRef = useRef<number | null>(null);
 
   const runSync = (userId: string, reason: string) => {
     if (!isSyncUploadAllowed()) return;
-    const plt = (() => { try { return (window as any).Capacitor?.getPlatform?.() ?? "web"; } catch { return "web"; } })();
-    if (plt !== "ios" && plt !== "android") return;
+    if (!isIphoneSourceDevice()) return;
 
     console.log(`[autoSync] Démarrage sync (${reason})...`);
     syncAppleHealth(userId)
@@ -33,6 +34,24 @@ function useAutoSync() {
         console.warn("[autoSync] Sync échoué (silencieux):", err.message);
       });
   };
+
+  useEffect(() => {
+    const next = syncStatus?.lastSync?.getTime() ?? null;
+    if (next == null) {
+      lastSeenSyncAtRef.current = null;
+      return;
+    }
+
+    if (lastSeenSyncAtRef.current == null) {
+      lastSeenSyncAtRef.current = next;
+      return;
+    }
+
+    if (next > lastSeenSyncAtRef.current) {
+      lastSeenSyncAtRef.current = next;
+      void refreshDashboardAfterSync(queryClient);
+    }
+  }, [queryClient, syncStatus?.lastSync]);
 
   // Sync au montage si jamais synchronisé ou sync > 1h
   useEffect(() => {

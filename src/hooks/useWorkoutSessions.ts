@@ -41,9 +41,10 @@ export function useWorkoutSetsBySession(sessionId: string | null) {
       console.log("[logbook] fetch sets by session_id:", sessionId);
       const { data, error } = await supabase
         .from("workout_sets")
-        .select("id,user_id,session_id,exercise_name,set_number,reps,weight_kg,notes,created_at")
+        .select("id,user_id,session_id,exercise_name,set_number,reps,weight_kg,notes,created_at,workout_sessions!inner(user_id)")
         .eq("user_id", user.id)
         .eq("session_id", sessionId)
+        .eq("workout_sessions.user_id", user.id)
         .order("set_number", { ascending: true })
         .order("created_at", { ascending: true });
       console.log("[logbook] sets résultat:", {
@@ -53,7 +54,8 @@ export function useWorkoutSetsBySession(sessionId: string | null) {
         error,
       });
       if (error) throw error;
-      return (data ?? []) as WorkoutSetRow[];
+      const safeData = (data ?? []).filter((set) => set.session_id === sessionId && set.user_id === user.id);
+      return safeData as WorkoutSetRow[];
     },
   });
 }

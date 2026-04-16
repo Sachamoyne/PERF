@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { LayoutDashboard, Timer, Bike, Waves, Swords, Dumbbell, Settings, ChevronRight, BookOpen } from "lucide-react";
+import { LayoutDashboard, Timer, Bike, Waves, Swords, Dumbbell, Settings, ChevronRight, BookOpen, Brain } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Sidebar,
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 const primaryItems = [
   { title: "Vue d'ensemble", url: "/", icon: LayoutDashboard, exact: true },
+  { title: "Coach IA", url: "/coach", icon: Brain },
   { title: "Mental", url: "/journal", icon: BookOpen },
 ] as const;
 

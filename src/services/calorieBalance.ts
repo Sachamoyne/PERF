@@ -92,12 +92,12 @@ export async function computeAndSaveCalorieBalance(
     .gte("start_time", `${sinceDateStr}T00:00:00`);
   if (actError) throw actError;
 
-  // 3. Récupérer anciennes balances pour nettoyer les dates sans food
+  // 3. Récupérer anciennes métriques de balance pour nettoyer les dates sans food
   const { data: existingBalanceRows, error: existingBalanceError } = await supabase
     .from("health_metrics")
-    .select("id, date")
+    .select("id, date, metric_type")
     .eq("user_id", userId)
-    .eq("metric_type", "calorie_balance")
+    .in("metric_type", ["calorie_balance", "calorie_smr", "calorie_sport"])
     .gte("date", sinceDateStr);
   if (existingBalanceError) throw existingBalanceError;
 
@@ -113,23 +113,40 @@ export async function computeAndSaveCalorieBalance(
     foodByDay[c.date] = c.value;
   }
 
-  // 5. Calculer et upsert balance uniquement si food > 0
-  const balanceRows = Object.entries(foodByDay)
+  // 5. Calculer les composants et upsert côté serveur (source unique multi-appareil)
+  const rowsToUpsert = Object.entries(foodByDay)
     .filter(([, food]) => food > 0)
-    .map(([date, food]) => {
+    .flatMap(([date, food]) => {
       const smr = Math.round(basalByDay[date] ?? BMR);
       const sport = Math.round(activeByDay[date] ?? (actCalByDay[date] ?? 0));
-      return {
-        user_id: userId,
-        date,
-        metric_type: "calorie_balance" as const,
-        value: Math.round(food - (smr + sport)),
-        unit: "kcal",
-      };
+      const balance = Math.round(food - (smr + sport));
+      return [
+        {
+          user_id: userId,
+          date,
+          metric_type: "calorie_balance" as const,
+          value: balance,
+          unit: "kcal",
+        },
+        {
+          user_id: userId,
+          date,
+          metric_type: "calorie_smr" as const,
+          value: smr,
+          unit: "kcal",
+        },
+        {
+          user_id: userId,
+          date,
+          metric_type: "calorie_sport" as const,
+          value: sport,
+          unit: "kcal",
+        },
+      ];
     });
 
-  // 6. Supprimer les anciennes balances quand food = 0 / absent
-  const datesWithFood = new Set(balanceRows.map((r) => r.date));
+  // 6. Supprimer les anciennes métriques quand food = 0 / absent
+  const datesWithFood = new Set(rowsToUpsert.map((r) => r.date));
   const staleBalanceIds = (existingBalanceRows ?? [])
     .filter((r) => !datesWithFood.has(r.date))
     .map((r) => r.id);
@@ -142,10 +159,10 @@ export async function computeAndSaveCalorieBalance(
     if (DEV && deleteError) console.error("[calorieBalance] stale delete error:", deleteError);
   }
 
-  if (balanceRows.length > 0) {
+  if (rowsToUpsert.length > 0) {
     const { error } = await supabase
       .from("health_metrics")
-      .upsert(balanceRows, { onConflict: "user_id,metric_type,date" });
+      .upsert(rowsToUpsert, { onConflict: "user_id,metric_type,date" });
     if (DEV && error) console.error("[calorieBalance] upsert error:", error);
   }
 
@@ -167,7 +184,7 @@ export async function computeAndSaveCalorieBalance(
     });
   }
 
-  if (DEV) console.log("[calorieBalance] ✓ Balance calculée pour", balanceRows.length, "jours");
+  if (DEV) console.log("[calorieBalance] ✓ Balance calculée pour", Math.round(rowsToUpsert.length / 3), "jours");
 
-  return balanceRows.length;
+  return Math.round(rowsToUpsert.length / 3);
 }
