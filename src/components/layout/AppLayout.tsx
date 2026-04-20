@@ -12,7 +12,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { isSyncUploadAllowed } from "@/lib/syncConsent";
 import { isIphoneSourceDevice } from "@/lib/platform";
 
-const MIN_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 min entre deux syncs foreground
+const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 15 min entre deux syncs foreground
 
 function useAutoSync() {
   const { user } = useAuth();
@@ -57,7 +57,7 @@ function useAutoSync() {
   useEffect(() => {
     if (!user) return;
     const shouldSync = !syncStatus?.lastSync ||
-      (Date.now() - syncStatus.lastSync.getTime()) > 60 * 60 * 1000;
+      (Date.now() - syncStatus.lastSync.getTime()) > 30 * 60 * 1000;
     if (shouldSync) runSync(user.id, "montage");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, syncStatus?.lastSync?.getTime()]);
